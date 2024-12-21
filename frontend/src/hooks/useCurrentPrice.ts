@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchHistoricalPrices } from '../services/dexscreener';
+import { fetchHistoricalPrices, HistoricalPrice } from '../services/dexscreener';
 
 export function useCurrentPrice(pairAddress: string) {
   const [price, setPrice] = useState<number | null>(null);
@@ -13,14 +13,22 @@ export function useCurrentPrice(pairAddress: string) {
         setIsLoading(true);
         setError(null);
         const prices = await fetchHistoricalPrices(pairAddress, '24H');
-        if (prices.length > 0) {
+        if (prices && prices.length > 0) {
           const currentPrice = prices[prices.length - 1].price;
           const previousPrice = prices[0].price;
           setPrice(currentPrice);
-          setChange(((currentPrice - previousPrice) / previousPrice * 100).toFixed(2) + '%');
+          const priceChange = previousPrice > 0 
+            ? ((currentPrice - previousPrice) / previousPrice * 100).toFixed(2)
+            : '0.00';
+          setChange(priceChange.startsWith('-') ? priceChange + '%' : '+' + priceChange + '%');
+        } else {
+          setPrice(null);
+          setChange('0.00%');
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch price');
+        setPrice(null);
+        setChange('0.00%');
       } finally {
         setIsLoading(false);
       }
@@ -28,7 +36,7 @@ export function useCurrentPrice(pairAddress: string) {
 
     if (pairAddress) {
       fetchPrice();
-      const interval = setInterval(fetchPrice, 30000); // Update every 30 seconds
+      const interval = setInterval(fetchPrice, 30000); // Refresh every 30 seconds
       return () => clearInterval(interval);
     }
   }, [pairAddress]);

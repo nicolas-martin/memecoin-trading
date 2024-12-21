@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { fetchCoinData, CoinData } from '../services/dexscreener';
 import { ChevronLeftIcon } from '@heroicons/react/24/outline';
 import MiniChart from '../components/charts/MiniChart';
@@ -8,8 +8,48 @@ import TradeModal from '../components/modals/TradeModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 
+const MOCK_COIN_DATA: Record<string, CoinData> = {
+  '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c': {
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    pairAddress: '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c',
+    price: '$45,000.00',
+    change: '+2.3%',
+    icon: '₿',
+    color: 'bg-[#F7931A]',
+    marketCap: 850000000000,
+    volume24h: 28000000000,
+    priceHistory: [],
+  },
+  '0x123': {
+    name: 'Dash',
+    symbol: 'DASH',
+    pairAddress: '0x123',
+    price: '$120.00',
+    change: '-1.2%',
+    icon: 'D',
+    color: 'bg-blue-500',
+    marketCap: 1200000000,
+    volume24h: 500000000,
+    priceHistory: [],
+  },
+  '0x456': {
+    name: 'Pundi X',
+    symbol: 'NPXS',
+    pairAddress: '0x456',
+    price: '$0.002',
+    change: '-1.2%',
+    icon: 'P',
+    color: 'bg-yellow-500',
+    marketCap: 500000000,
+    volume24h: 25000000,
+    priceHistory: [],
+  },
+};
+
 const CoinDetail = () => {
   const { pairAddress } = useParams();
+  const navigate = useNavigate();
   const [coinData, setCoinData] = useState<CoinData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +60,13 @@ const CoinDetail = () => {
       if (!pairAddress) return;
       try {
         setIsLoading(true);
-        const data = await fetchCoinData(pairAddress);
-        setCoinData(data);
+        // Use mock data instead of fetching
+        const mockData = MOCK_COIN_DATA[pairAddress];
+        if (mockData) {
+          setCoinData(mockData);
+        } else {
+          setError('Coin not found');
+        }
       } catch (err) {
         setError('Failed to load coin data');
         console.error(err);
@@ -73,7 +118,9 @@ const CoinDetail = () => {
           <div className="flex justify-between items-start mb-4">
             <div>
               <span className="text-3xl font-bold">{coinData.price}</span>
-              <div className="text-green-400 text-sm">{coinData.change} ($123.45)</div>
+              <div className={`text-sm ${coinData.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
+                {coinData.change}
+              </div>
             </div>
             <button 
               onClick={() => setShowTradeModal(true)}
@@ -94,10 +141,10 @@ const CoinDetail = () => {
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-4">
             {[
-              { label: 'Market Cap', value: '$123.88B' },
-              { label: '24h Volume', value: '$4.12B' },
-              { label: 'Circulating Supply', value: '19.5M BTC' },
-              { label: 'Max Supply', value: '21M BTC' },
+              { label: 'Market Cap', value: `$${coinData.marketCap.toLocaleString()}` },
+              { label: '24h Volume', value: `$${coinData.volume24h.toLocaleString()}` },
+              { label: 'Circulating Supply', value: `${(coinData.marketCap / parseFloat(coinData.price.slice(1))).toFixed(2)} ${coinData.symbol}` },
+              { label: 'Max Supply', value: `${(coinData.marketCap / parseFloat(coinData.price.slice(1)) * 1.1).toFixed(2)} ${coinData.symbol}` },
             ].map((stat, index) => (
               <div key={index} className="bg-[#1C1C1E] p-4 rounded-xl">
                 <div className="text-gray-400 text-sm mb-1">{stat.label}</div>
@@ -112,7 +159,7 @@ const CoinDetail = () => {
             <div className="space-y-3">
               {[
                 { period: '1H', change: '+0.5%' },
-                { period: '24H', change: '+1.2%' },
+                { period: '24H', change: coinData.change },
                 { period: '7D', change: '-3.1%' },
                 { period: '1M', change: '+15.7%' },
                 { period: '1Y', change: '+124.3%' },

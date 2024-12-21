@@ -70,4 +70,60 @@ export async function getPairsByToken(tokenAddresses: string[]): Promise<PairDat
 
 export async function getTrendingPairs(): Promise<PairData[]> {
   return generateMockPairs(10);
-} 
+}
+
+export interface HistoricalPrice {
+  timestamp: number;
+  price: number;
+}
+
+export const fetchHistoricalPrices = async (pairAddress: string, timeframe: string): Promise<HistoricalPrice[]> => {
+  // Generate mock historical prices
+  const now = Date.now();
+  const points = 100;
+  const basePrice = 1000 + Math.random() * 9000;
+  const volatility = 0.02;
+
+  return Array.from({ length: points }, (_, i) => {
+    const timeDiff = i * (24 * 60 * 60 * 1000 / points); // Spread over 24 hours
+    const randomWalk = basePrice * (1 + (Math.random() - 0.5) * volatility);
+    return {
+      timestamp: now - timeDiff,
+      price: randomWalk
+    };
+  }).reverse();
+};
+
+export interface CoinData {
+  name: string;
+  symbol: string;
+  pairAddress: string;
+  price: string;
+  change: string;
+  icon: string;
+  color: string;
+  marketCap: number;
+  volume24h: number;
+  priceHistory: {
+    timestamp: number;
+    price: number;
+  }[];
+}
+
+export const fetchCoinData = async (pairAddress: string): Promise<CoinData> => {
+  const pairs = await getPairsByAddress('', pairAddress);
+  const pair = pairs[0];
+  
+  return {
+    name: pair.baseToken.name,
+    symbol: pair.baseToken.symbol,
+    pairAddress: pair.pairAddress,
+    price: `$${parseFloat(pair.priceUsd).toLocaleString()}`,
+    change: `${pair.priceChange.h24 >= 0 ? '+' : ''}${pair.priceChange.h24.toFixed(1)}%`,
+    icon: pair.info?.imageUrl || pair.baseToken.symbol.charAt(0),
+    color: 'bg-[#1C1C1E]',
+    marketCap: pair.marketCap,
+    volume24h: pair.volume.h24,
+    priceHistory: [],
+  };
+}; 

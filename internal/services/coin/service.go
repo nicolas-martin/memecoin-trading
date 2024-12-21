@@ -74,6 +74,11 @@ type DexScreenerResponse struct {
 	} `json:"pairs"`
 }
 
+type PricePoint struct {
+	Timestamp time.Time `json:"timestamp"`
+	Price     float64   `json:"price"`
+}
+
 func (s *Service) GetPairData(ctx context.Context, chainId, pairAddress string) (*models.Coin, error) {
 	cacheKey := fmt.Sprintf("pair:%s:%s", chainId, pairAddress)
 
@@ -235,6 +240,50 @@ func (s *Service) GetTopCoins(ctx context.Context, limit int) ([]*models.Coin, e
 	}
 
 	return coins, nil
+}
+
+func (s *Service) GetHistoricalPrices(ctx context.Context, pairAddress string) ([]PricePoint, error) {
+	cacheKey := fmt.Sprintf("historical_prices:%s", pairAddress)
+
+	// Try to get from cache first
+	if cachedData, err := s.cache.Get(ctx, cacheKey); err == nil {
+		var prices []PricePoint
+		if err := json.Unmarshal([]byte(cachedData), &prices); err == nil {
+			return prices, nil
+		}
+	}
+
+	// If not in cache, fetch from API
+	url := fmt.Sprintf("%s/pairs/history/%s", s.baseURL, pairAddress)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch historical prices: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned non-200 status: %d", resp.StatusCode)
+	}
+
+	var prices []PricePoint
+	if err := json.NewDecoder(resp.Body).Decode(&prices); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Cache the results
+	if jsonData, err := json.Marshal(prices); err == nil {
+		if err := s.cache.Set(ctx, cacheKey, string(jsonData), longTTL); err != nil {
+			// Log the error but don't fail the request
+			fmt.Printf("failed to cache historical prices: %v\n", err)
+		}
+	}
+
+	return prices, nil
 }
 
 func NewService(cache redis.Cache) *Service {

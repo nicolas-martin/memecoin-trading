@@ -16,8 +16,12 @@ export const getTopCoins = async (limit: number = 50): Promise<Coin[]> => {
 };
 
 export const getCoinById = async (id: string): Promise<Coin> => {
-  const response = await api.get<Coin>(`/coins/${id}`);
-  return response.data;
+  try {
+    const response = await axios.get<Coin>(`${API_URL}/coins/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to fetch coin details');
+  }
 };
 
 // Add authentication interceptor

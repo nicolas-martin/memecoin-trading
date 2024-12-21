@@ -27,7 +27,7 @@ type Liquidity struct {
 }
 
 type Coin struct {
-	ID          string      `json:"id" gorm:"primaryKey"`
+	ID          uuid.UUID   `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	Name        string      `json:"name" gorm:"type:varchar(255)"`
 	Symbol      string      `json:"symbol" gorm:"type:varchar(50)"`
 	PairAddress string      `json:"pairAddress" gorm:"type:varchar(255)"`

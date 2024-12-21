@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/nicolas-martin/memecoin-trading/internal/models"
 )
 
@@ -29,9 +30,9 @@ type Cache interface {
 	Del(ctx context.Context, key string) error
 	GetTopCoins(ctx context.Context, limit int) ([]models.Coin, error)
 	SetTopCoins(ctx context.Context, coins []models.Coin) error
-	GetCoinByID(ctx context.Context, id string) (*models.Coin, error)
+	GetCoinByID(ctx context.Context, id uuid.UUID) (*models.Coin, error)
 	SetCoin(ctx context.Context, coin *models.Coin) error
-	InvalidateCoinCache(ctx context.Context, id string) error
+	InvalidateCoinCache(ctx context.Context, id uuid.UUID) error
 	GetUserByID(ctx context.Context, id string) (*models.User, error)
 	SetUser(ctx context.Context, user *models.User) error
 	InvalidateUserCache(ctx context.Context, id string) error
@@ -103,8 +104,8 @@ func (c *RedisCache) SetTopCoins(ctx context.Context, coins []models.Coin) error
 	return nil
 }
 
-func (c *RedisCache) GetCoinByID(ctx context.Context, id string) (*models.Coin, error) {
-	key := coinPrefix + id
+func (c *RedisCache) GetCoinByID(ctx context.Context, id uuid.UUID) (*models.Coin, error) {
+	key := coinPrefix + id.String()
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -127,7 +128,7 @@ func (c *RedisCache) SetCoin(ctx context.Context, coin *models.Coin) error {
 		return fmt.Errorf("json marshal error: %w", err)
 	}
 
-	key := coinPrefix + coin.ID
+	key := coinPrefix + coin.ID.String()
 	if err := c.client.Set(ctx, key, data, longTTL).Err(); err != nil {
 		return fmt.Errorf("redis set error: %w", err)
 	}
@@ -135,8 +136,8 @@ func (c *RedisCache) SetCoin(ctx context.Context, coin *models.Coin) error {
 	return nil
 }
 
-func (c *RedisCache) InvalidateCoinCache(ctx context.Context, id string) error {
-	key := coinPrefix + id
+func (c *RedisCache) InvalidateCoinCache(ctx context.Context, id uuid.UUID) error {
+	key := coinPrefix + id.String()
 	return c.client.Del(ctx, key).Err()
 }
 

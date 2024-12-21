@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import TrendingCard from '../components/cards/TrendingCard';
 import TabBar from '../components/navigation/TabBar';
 import CoinListItem from '../components/lists/CoinListItem';
 import TradeModal from '../components/modals/TradeModal';
-import { getTrendingPairs, PairData } from '../services/dexscreener';
+import { fetchTrendingCoins, setSelectedCoin } from '../store/slices/coinSlice';
+import type { RootState, AppDispatch } from '../store';
+import { PairData } from '../services/dexscreener';
 
 const TABS = [
   { id: 'coins', label: 'Coins' },
@@ -23,34 +26,18 @@ const COIN_LIST = [
     color: 'bg-[#F7931A]',
     pairAddress: '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c',
   },
-  { name: 'Dash', symbol: 'DASH', price: '$8,907.02', change: '-1.2%', icon: 'D', color: 'bg-blue-500' },
-  { name: 'Pundi X', symbol: 'NPXS', price: '$8,907.02', change: '-1.2%', icon: 'P', color: 'bg-yellow-500' },
-  // Add more coins
+  { name: 'Dash', symbol: 'DASH', price: '$8,907.02', change: '-1.2%', icon: 'D', color: 'bg-blue-500', pairAddress: '0x123' },
+  { name: 'Pundi X', symbol: 'NPXS', price: '$8,907.02', change: '-1.2%', icon: 'P', color: 'bg-yellow-500', pairAddress: '0x456' },
 ];
 
 const Portfolio = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState('coins');
-  const [selectedCoin, setSelectedCoin] = useState(null);
-  const [trendingCoins, setTrendingCoins] = useState<PairData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { trendingCoins, loading, error, selectedCoin } = useSelector((state: RootState) => state.coins);
 
   useEffect(() => {
-    const loadTrendingCoins = async () => {
-      try {
-        setIsLoading(true);
-        const pairs = await getTrendingPairs();
-        setTrendingCoins(pairs);
-      } catch (err) {
-        setError('Failed to load trending coins');
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadTrendingCoins();
-  }, []);
+    dispatch(fetchTrendingCoins());
+  }, [dispatch]);
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-top">
@@ -81,7 +68,7 @@ const Portfolio = () => {
         {/* Trending Section */}
         <div className="px-4 mb-6">
           <h2 className="text-2xl font-bold mb-4">Trending</h2>
-          {isLoading ? (
+          {loading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
             </div>
@@ -89,7 +76,7 @@ const Portfolio = () => {
             <div className="text-red-400 text-center py-8">{error}</div>
           ) : (
             <div className="flex space-x-4 overflow-x-auto pb-4 hide-scrollbar -mx-4 px-4">
-              {trendingCoins.map((pair) => (
+              {trendingCoins.map((pair: PairData) => (
                 <TrendingCard 
                   key={pair.pairAddress}
                   coin={{
@@ -112,11 +99,12 @@ const Portfolio = () => {
         {/* Coin List */}
         <div className="px-4 pb-32"> {/* Extra padding for bottom nav */}
           {COIN_LIST.map((coin, index) => (
-            <CoinListItem
-              key={index}
-              coin={coin}
-              onTrade={() => setSelectedCoin(coin)}
-            />
+            <Link to={`/coins/${coin.pairAddress}`} key={index}>
+              <CoinListItem
+                coin={coin}
+                onTrade={() => dispatch(setSelectedCoin(coin))}
+              />
+            </Link>
           ))}
         </div>
       </div>
@@ -126,7 +114,7 @@ const Portfolio = () => {
         <TradeModal
           coin={selectedCoin}
           isOpen={!!selectedCoin}
-          onClose={() => setSelectedCoin(null)}
+          onClose={() => dispatch(setSelectedCoin(null))}
         />
       )}
     </div>

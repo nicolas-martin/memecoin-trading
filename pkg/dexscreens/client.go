@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/nicolas-martin/memecoin-trading/internal/models"
 )
 
@@ -50,8 +51,8 @@ func (c *Client) GetTopCoins(ctx context.Context, limit int) ([]models.Coin, err
 	return response.Tokens, nil
 }
 
-func (c *Client) GetCoinByID(ctx context.Context, id string) (*models.Coin, error) {
-	url := fmt.Sprintf("%s/tokens/%s", c.baseURL, id)
+func (c *Client) GetCoinByID(ctx context.Context, id uuid.UUID) (*models.Coin, error) {
+	url := fmt.Sprintf("%s/tokens/%s", c.baseURL, id.String())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

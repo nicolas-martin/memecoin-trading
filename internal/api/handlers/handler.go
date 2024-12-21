@@ -61,4 +61,14 @@ func (h *CoinHandler) GetTopCoins(c *gin.Context) {
 	c.JSON(http.StatusOK, coins)
 }
 
+func (h *CoinHandler) GetHistoricalPrices(c *gin.Context) {
+	pairAddress := c.Param("pairAddress")
+	prices, err := h.service.GetHistoricalPrices(c.Request.Context(), pairAddress)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, prices)
+}
+
 // Add other handler methods here...
