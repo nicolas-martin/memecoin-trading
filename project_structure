@@ -1,0 +1,54 @@
+memecoin-frontend/
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── common/
+│   │   │   ├── Button.tsx
+│   │   │   ├── Input.tsx
+│   │   │   ├── Card.tsx
+│   │   │   ├── Loading.tsx
+│   │   │   └── ErrorBoundary.tsx
+│   │   ├── layout/
+│   │   │   ├── Navbar.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── Footer.tsx
+│   │   ├── charts/
+│   │   │   ├── PriceChart.tsx
+│   │   │   └── PortfolioChart.tsx
+│   │   └── tables/
+│   │       ├── CoinTable.tsx
+│   │       └── TransactionTable.tsx
+│   ├── pages/
+│   │   ├── Home.tsx
+│   │   ├── CoinList.tsx
+│   │   ├── CoinDetail.tsx
+│   │   ├── Portfolio.tsx
+│   │   ├── Trading.tsx
+│   │   └── Settings.tsx
+│   ├── hooks/
+│   │   ├── useCoins.ts
+│   │   ├── useWallet.ts
+│   │   └── useAuth.ts
+│   ├── services/
+│   │   ├── api.ts
+│   │   ├── wallet.ts
+│   │   └── auth.ts
+│   ├── store/
+│   │   ├── slices/
+│   │   │   ├── coinSlice.ts
+│   │   │   ├── walletSlice.ts
+│   │   │   └── authSlice.ts
+│   │   └── store.ts
+│   ├── types/
+│   │   ├── coin.ts
+│   │   ├── wallet.ts
+│   │   └── transaction.ts
+│   └── utils/
+│       ├── constants.ts
+│       ├── formatters.ts
+│       └── validators.ts
+├── public/
+│   └── assets/
+├── index.html
+└── package.json 
