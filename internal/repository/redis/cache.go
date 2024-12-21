@@ -22,14 +22,52 @@ const (
 	leaderboardKeyPrefix = "leaderboard:"
 )
 
+// Cache defines the interface for caching operations
+type Cache interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value string, expiration time.Duration) error
+	Del(ctx context.Context, key string) error
+	GetTopCoins(ctx context.Context, limit int) ([]models.Coin, error)
+	SetTopCoins(ctx context.Context, coins []models.Coin) error
+	GetCoinByID(ctx context.Context, id string) (*models.Coin, error)
+	SetCoin(ctx context.Context, coin *models.Coin) error
+	InvalidateCoinCache(ctx context.Context, id string) error
+	GetUserByID(ctx context.Context, id string) (*models.User, error)
+	SetUser(ctx context.Context, user *models.User) error
+	InvalidateUserCache(ctx context.Context, id string) error
+	GetUserStats(ctx context.Context, userID string) (map[string]float64, error)
+	SetUserStats(ctx context.Context, userID string, stats map[string]float64) error
+	InvalidateUserStats(ctx context.Context, userID string) error
+	GetLeaderboard(ctx context.Context, timeframe string) ([]models.LeaderboardEntry, error)
+	SetLeaderboard(ctx context.Context, timeframe string, entries []models.LeaderboardEntry) error
+	InvalidateLeaderboard(ctx context.Context, timeframe string) error
+	Clear(ctx context.Context) error
+	Ping(ctx context.Context) error
+}
+
+// RedisCache implements the Cache interface
 type RedisCache struct {
 	client *redis.Client
 }
 
+// NewRedisCache creates a new RedisCache instance
 func NewRedisCache(client *redis.Client) *RedisCache {
 	return &RedisCache{
 		client: client,
 	}
+}
+
+// Basic operations
+func (c *RedisCache) Get(ctx context.Context, key string) (string, error) {
+	return c.client.Get(ctx, key).Result()
+}
+
+func (c *RedisCache) Set(ctx context.Context, key string, value string, expiration time.Duration) error {
+	return c.client.Set(ctx, key, value, expiration).Err()
+}
+
+func (c *RedisCache) Del(ctx context.Context, key string) error {
+	return c.client.Del(ctx, key).Err()
 }
 
 // Coin methods
@@ -89,7 +127,7 @@ func (c *RedisCache) SetCoin(ctx context.Context, coin *models.Coin) error {
 		return fmt.Errorf("json marshal error: %w", err)
 	}
 
-	key := coinPrefix + coin.ID.String()
+	key := coinPrefix + coin.ID
 	if err := c.client.Set(ctx, key, data, longTTL).Err(); err != nil {
 		return fmt.Errorf("redis set error: %w", err)
 	}

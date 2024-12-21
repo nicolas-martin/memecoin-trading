@@ -3,15 +3,45 @@
 @tailwind utilities;
 
 :root {
-  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
+  --safe-area-left: env(safe-area-inset-left);
+  --safe-area-right: env(safe-area-inset-right);
+}
+
+/* Prevent pull-to-refresh and overscroll behaviors */
+html {
+  overflow: hidden;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
-  @apply text-gray-900 antialiased;
+  overflow: auto;
+  height: 100%;
+  overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
   background-color: black;
 }
 
+/* Safe area utilities */
+.safe-area-top {
+  padding-top: var(--safe-area-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: var(--safe-area-bottom);
+}
+
+.h-safe-top {
+  height: var(--safe-area-top);
+}
+
+.pb-safe-bottom {
+  padding-bottom: calc(var(--safe-area-bottom) + 5rem);
+}
+
+/* Hide scrollbars */
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -19,6 +49,20 @@ body {
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Disable text selection */
+.touch-callout-none {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* iOS-like active states */
+@media (hover: none) {
+  .active\:opacity-90:active {
+    opacity: 0.9;
+  }
 }
 
 /* iOS-like button active state */
@@ -35,7 +79,21 @@ button:active {
   @apply bg-gray-50;
 }
 
-/* Add bottom safe area padding for iOS devices */
-.safe-area-bottom {
-  padding-bottom: calc(1rem + var(--safe-area-inset-bottom));
+/* Add to your existing CSS */
+.page-transition-enter {
+  transform: translateX(100%);
+}
+
+.page-transition-enter-active {
+  transform: translateX(0);
+  transition: transform 300ms ease-out;
+}
+
+.page-transition-exit {
+  transform: translateX(0);
+}
+
+.page-transition-exit-active {
+  transform: translateX(-100%);
+  transition: transform 300ms ease-out;
 }

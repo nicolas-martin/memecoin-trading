@@ -1,4 +1,5 @@
 import MiniChart from '../charts/MiniChart';
+import { useNavigate } from 'react-router-dom';
 
 interface TrendingCardProps {
   coin: {
@@ -11,14 +12,19 @@ interface TrendingCardProps {
     open: string;
     marketCap: string;
   };
+  className?: string;
 }
 
-const TrendingCard = ({ coin }: TrendingCardProps) => {
+const TrendingCard = ({ coin, className = '' }: TrendingCardProps) => {
+  const navigate = useNavigate();
   const mockChartData = [10, 41, 35, 51, 49, 62, 69, 91, 148];
   const isPositive = coin.change.startsWith('+');
 
   return (
-    <div className="flex-shrink-0 w-72 bg-[#1C1C1E] rounded-xl p-4">
+    <div 
+      onClick={() => navigate(`/coins/${coin.symbol.toLowerCase()}`)}
+      className={`bg-[#1C1C1E] rounded-xl p-4 active:opacity-90 transition-opacity touch-callout-none cursor-pointer ${className}`}
+    >
       <div className="flex items-center space-x-3 mb-3">
         <div className={`w-8 h-8 ${coin.color} rounded-full flex items-center justify-center`}>
           <span className="text-white text-lg">{coin.icon}</span>

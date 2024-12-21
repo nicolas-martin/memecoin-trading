@@ -7,16 +7,39 @@ import (
 	"gorm.io/gorm"
 )
 
+type PriceChange struct {
+	H1  float64 `json:"h1"`
+	H24 float64 `json:"h24"`
+	D7  float64 `json:"d7"`
+}
+
+type Volume struct {
+	H24 float64 `json:"h24"`
+	H6  float64 `json:"h6"`
+	H1  float64 `json:"h1"`
+	M5  float64 `json:"m5"`
+}
+
+type Liquidity struct {
+	USD   float64 `json:"usd"`
+	Base  float64 `json:"base"`
+	Quote float64 `json:"quote"`
+}
+
 type Coin struct {
-	ID              uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Symbol          string         `json:"symbol" gorm:"type:varchar(50);not null"`
-	Name            string         `json:"name" gorm:"type:varchar(255);not null"`
-	ContractAddress string         `json:"contract_address" gorm:"type:varchar(255);unique;not null"`
-	LogoURL         string         `json:"logo_url" gorm:"type:text"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
-	Prices          []CoinPrice    `json:"prices,omitempty" gorm:"foreignKey:CoinID"`
+	ID          string      `json:"id" gorm:"primaryKey"`
+	Name        string      `json:"name" gorm:"type:varchar(255)"`
+	Symbol      string      `json:"symbol" gorm:"type:varchar(50)"`
+	PairAddress string      `json:"pairAddress" gorm:"type:varchar(255)"`
+	ChainID     string      `json:"chainId" gorm:"type:varchar(50)"`
+	Price       string      `json:"price" gorm:"type:varchar(50)"`
+	PriceChange PriceChange `json:"priceChange" gorm:"embedded"`
+	Volume      Volume      `json:"volume" gorm:"embedded"`
+	Liquidity   Liquidity   `json:"liquidity" gorm:"embedded"`
+	MarketCap   float64     `json:"marketCap" gorm:"type:decimal(20,2)"`
+	FDV         float64     `json:"fdv" gorm:"type:decimal(20,2)"`
+	Logo        string      `json:"logo,omitempty" gorm:"type:text"`
+	Description string      `json:"description,omitempty" gorm:"type:text"`
 }
 
 type CoinPrice struct {

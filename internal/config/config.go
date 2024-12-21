@@ -12,6 +12,7 @@ type Config struct {
 	Solana     SolanaConfig
 	DexScreens DexScreensConfig
 	JWT        JWTConfig
+	ApplePay   ApplePayConfig
 }
 
 type AppConfig struct {
@@ -53,6 +54,13 @@ type JWTConfig struct {
 	Expiration time.Duration
 }
 
+type ApplePayConfig struct {
+	MerchantID      string `env:"APPLE_PAY_MERCHANT_ID,required"`
+	CertificatePath string `env:"APPLE_PAY_CERT_PATH,required"`
+	PrivateKeyPath  string `env:"APPLE_PAY_KEY_PATH,required"`
+	DomainName      string `env:"APPLE_PAY_DOMAIN,required"`
+}
+
 func Load() (*Config, error) {
 	return &Config{
 		App: AppConfig{
@@ -87,6 +95,12 @@ func Load() (*Config, error) {
 		JWT: JWTConfig{
 			Secret:     getEnv("JWT_SECRET", ""),
 			Expiration: 24 * time.Hour,
+		},
+		ApplePay: ApplePayConfig{
+			MerchantID:      getEnv("APPLE_PAY_MERCHANT_ID", ""),
+			CertificatePath: getEnv("APPLE_PAY_CERT_PATH", ""),
+			PrivateKeyPath:  getEnv("APPLE_PAY_KEY_PATH", ""),
+			DomainName:      getEnv("APPLE_PAY_DOMAIN", ""),
 		},
 	}, nil
 }

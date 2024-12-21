@@ -14,7 +14,6 @@ import (
 	"github.com/nicolas-martin/memecoin-trading/internal/services/payment"
 	"github.com/nicolas-martin/memecoin-trading/internal/services/portfolio"
 	"github.com/nicolas-martin/memecoin-trading/internal/services/support"
-	"github.com/nicolas-martin/memecoin-trading/pkg/dexscreens"
 	"gorm.io/gorm"
 )
 
@@ -53,18 +52,16 @@ func (a *App) Start() error {
 	supportRepo := postgres.NewSupportRepository(a.db)
 	paymentRepo := postgres.NewPaymentRepository(a.db)
 
-	// Initialize DexScreens client
-	dexScreens := dexscreens.NewClient(
-		a.config.DexScreens.ApiURL,
-		a.config.DexScreens.ApiKey,
-	)
-
 	// Initialize services
-	coinService := coin.NewService(cache, dexScreens)
+	coinService := coin.NewService(cache)
 	leaderboardService := leaderboard.NewService(leaderboardRepo, cache)
 	portfolioService := portfolio.NewService(portfolioRepo, cache)
 	supportService := support.NewService(supportRepo)
-	paymentService := payment.NewService(paymentRepo, cache)
+	paymentService := payment.NewService(
+		paymentRepo,
+		cache,
+		&a.config.ApplePay,
+	)
 
 	// Initialize handlers
 	handler := handlers.NewHandler(

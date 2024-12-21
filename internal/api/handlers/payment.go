@@ -19,30 +19,33 @@ func (h *PaymentHandler) ValidateApplePay(c *gin.Context) {
 	var req struct {
 		ValidationURL string `json:"validationURL"`
 	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	session, err := h.service.ValidateApplePay(c.Request.Context(), req.ValidationURL)
+	merchantSession, err := h.service.ValidateApplePayMerchant(c.Request.Context(), req.ValidationURL)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, session)
+	c.JSON(http.StatusOK, merchantSession)
 }
 
 func (h *PaymentHandler) ProcessApplePay(c *gin.Context) {
 	var req struct {
-		PaymentData interface{} `json:"paymentData"`
+		Payment map[string]interface{} `json:"payment"`
+		Amount  float64                `json:"amount"`
 	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	result, err := h.service.ProcessApplePay(c.Request.Context(), req.PaymentData)
+	result, err := h.service.ProcessApplePayPayment(c.Request.Context(), req.Payment, req.Amount)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

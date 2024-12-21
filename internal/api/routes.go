@@ -45,4 +45,10 @@ func setupRoutes(r *gin.Engine, h *handlers.Handler) {
 			payments.POST("/funds/add", h.AddFunds)
 		}
 	}
+
+	// Price routes
+	prices := api.Group("/prices")
+	{
+		prices.GET("/:pairAddress", h.GetHistoricalPrices)
+	}
 }
