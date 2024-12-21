@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/nicolas-martin/memecoin-trading/internal/config"
 	"github.com/nicolas-martin/memecoin-trading/internal/models"
 	"gorm.io/driver/postgres"
@@ -55,5 +56,8 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Coin{},
 		&models.CoinPrice{},
 		&models.Transaction{},
+		&models.Payment{},
+		&models.SupportTicket{},
+		&models.TicketMessage{},
 	)
 }

@@ -21,24 +21,24 @@ const (
 )
 
 type SupportTicket struct {
-	ID          uuid.UUID       `json:"id" db:"id"`
-	UserID      uuid.UUID       `json:"user_id" db:"user_id"`
-	Subject     string          `json:"subject" db:"subject"`
-	Description string          `json:"description" db:"description"`
-	Status      TicketStatus    `json:"status" db:"status"`
-	Priority    TicketPriority  `json:"priority" db:"priority"`
-	CreatedAt   time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at" db:"updated_at"`
-	Messages    []TicketMessage `json:"messages,omitempty" db:"-"`
+	ID          uuid.UUID       `json:"id" gorm:"type:uuid;primary_key"`
+	UserID      uuid.UUID       `json:"user_id" gorm:"type:uuid;index"`
+	Subject     string          `json:"subject" gorm:"size:255"`
+	Description string          `json:"description" gorm:"type:text"`
+	Status      TicketStatus    `json:"status" gorm:"type:varchar(20)"`
+	Priority    TicketPriority  `json:"priority" gorm:"type:varchar(10)"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	Messages    []TicketMessage `json:"messages,omitempty" gorm:"foreignKey:TicketID;references:ID"`
 }
 
 type TicketMessage struct {
-	ID        uuid.UUID `json:"id" db:"id"`
-	TicketID  uuid.UUID `json:"ticket_id" db:"ticket_id"`
-	UserID    uuid.UUID `json:"user_id" db:"user_id"`
-	Content   string    `json:"content" db:"content"`
-	IsSupport bool      `json:"is_support" db:"is_support"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key"`
+	TicketID  uuid.UUID `json:"ticket_id" gorm:"type:uuid;index"`
+	UserID    uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
+	Content   string    `json:"content" gorm:"type:text"`
+	IsSupport bool      `json:"is_support" gorm:"default:false"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type CreateTicketRequest struct {

@@ -51,6 +51,7 @@ func (a *App) Start() error {
 	leaderboardRepo := postgres.NewLeaderboardRepository(a.db)
 	portfolioRepo := postgres.NewPortfolioRepository(a.db)
 	supportRepo := postgres.NewSupportRepository(a.db)
+	paymentRepo := postgres.NewPaymentRepository(a.db)
 
 	// Initialize DexScreens client
 	dexScreens := dexscreens.NewClient(
