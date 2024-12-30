@@ -3,6 +3,7 @@ package blockchain
 import (
 	"context"
 	"math/big"
+	"time"
 )
 
 // Network represents a blockchain network
@@ -67,6 +68,24 @@ const (
 	TransactionStatusFailed    TransactionStatus = "failed"
 )
 
+// MemeCoin represents a meme coin with its market data
+type MemeCoin struct {
+	Address     string
+	Symbol      string
+	Name        string
+	Price       Amount
+	MarketCap   Amount
+	Volume24h   Amount
+	Change24h   float64
+	LastUpdated time.Time
+}
+
+// TopMemeCoinsRequest represents parameters for fetching top meme coins
+type TopMemeCoinsRequest struct {
+	Limit     int           // Number of coins to fetch (default 50)
+	TimeFrame time.Duration // Time frame for historical data (e.g., 24h, 7d)
+}
+
 // Provider defines the interface for blockchain-specific implementations
 type Provider interface {
 	// Network information
@@ -83,6 +102,9 @@ type Provider interface {
 	Sell(ctx context.Context, req SellRequest) (*Transaction, error)
 	GetTransaction(ctx context.Context, txID string) (*Transaction, error)
 	GetTransactions(ctx context.Context, address string, limit int) ([]Transaction, error)
+
+	// Meme coin operations
+	GetTopMemeCoins(ctx context.Context, req TopMemeCoinsRequest) ([]MemeCoin, error)
 }
 
 // BuyRequest represents a request to buy tokens

@@ -4,11 +4,19 @@ import (
 	"context"
 	"fmt"
 	"meme-trader/internal/blockchain"
+	"sort"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/rpc"
 )
+
+// RaydiumTopMemeCoinsRequest represents parameters for fetching top meme coins from Raydium
+type RaydiumTopMemeCoinsRequest struct {
+	Limit     int
+	TimeFrame time.Duration
+}
 
 // RaydiumClient handles interactions with the Raydium DEX
 type RaydiumClient struct {
@@ -22,6 +30,78 @@ func NewRaydiumClient(rpcClient *rpc.Client, isDevnet bool) *RaydiumClient {
 		rpcClient: rpcClient,
 		isDevnet:  isDevnet,
 	}
+}
+
+// GetTopMemeCoins fetches the top meme coins from Raydium DEX
+func (c *RaydiumClient) GetTopMemeCoins(ctx context.Context, req RaydiumTopMemeCoinsRequest) ([]blockchain.MemeCoin, error) {
+	// Get all pools from Raydium
+	pools, err := c.getAllPools(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pools: %w", err)
+	}
+
+	// Filter and sort pools by volume
+	memeCoins := c.filterAndSortMemePools(pools, req.TimeFrame)
+
+	// Limit the results
+	if len(memeCoins) > req.Limit {
+		memeCoins = memeCoins[:req.Limit]
+	}
+
+	return memeCoins, nil
+}
+
+// getAllPools fetches all liquidity pools from Raydium
+func (c *RaydiumClient) getAllPools(ctx context.Context) ([]RaydiumPool, error) {
+	// TODO: Implement actual Raydium API call to fetch pools
+	// This is a placeholder that should be replaced with actual implementation
+	return []RaydiumPool{}, nil
+}
+
+// RaydiumPool represents a liquidity pool on Raydium
+type RaydiumPool struct {
+	TokenAddress   string
+	Symbol         string
+	Name           string
+	Price          blockchain.Amount
+	MarketCap      blockchain.Amount
+	Volume24h      blockchain.Amount
+	PriceChange24h float64
+	LastUpdated    time.Time
+	IsMemeCoin     bool
+}
+
+// filterAndSortMemePools filters out non-meme coins and sorts by volume
+func (c *RaydiumClient) filterAndSortMemePools(pools []RaydiumPool, timeFrame time.Duration) []blockchain.MemeCoin {
+	var memeCoins []blockchain.MemeCoin
+
+	// Filter meme coins
+	for _, pool := range pools {
+		if !pool.IsMemeCoin {
+			continue
+		}
+
+		// Convert pool to MemeCoin
+		memeCoin := blockchain.MemeCoin{
+			Address:     pool.TokenAddress,
+			Symbol:      pool.Symbol,
+			Name:        pool.Name,
+			Price:       pool.Price,
+			MarketCap:   pool.MarketCap,
+			Volume24h:   pool.Volume24h,
+			Change24h:   pool.PriceChange24h,
+			LastUpdated: pool.LastUpdated,
+		}
+
+		memeCoins = append(memeCoins, memeCoin)
+	}
+
+	// Sort by volume (descending)
+	sort.Slice(memeCoins, func(i, j int) bool {
+		return memeCoins[i].Volume24h.Value.Cmp(memeCoins[j].Volume24h.Value) > 0
+	})
+
+	return memeCoins
 }
 
 // SwapTokens executes a token swap on Raydium

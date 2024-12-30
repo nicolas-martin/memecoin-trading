@@ -232,3 +232,26 @@ func (p *Provider) GetTransactions(ctx context.Context, address string, limit in
 
 	return transactions, nil
 }
+
+func (p *Provider) GetTopMemeCoins(ctx context.Context, req blockchain.TopMemeCoinsRequest) ([]blockchain.MemeCoin, error) {
+	// Set default limit if not specified
+	if req.Limit <= 0 {
+		req.Limit = 50
+	}
+
+	// Set default time frame if not specified
+	if req.TimeFrame <= 0 {
+		req.TimeFrame = 24 * time.Hour
+	}
+
+	// Get meme coins from Raydium
+	coins, err := p.raydiumClient.GetTopMemeCoins(ctx, RaydiumTopMemeCoinsRequest{
+		Limit:     req.Limit,
+		TimeFrame: req.TimeFrame,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top meme coins from Raydium: %w", err)
+	}
+
+	return coins, nil
+}
