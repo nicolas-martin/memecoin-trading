@@ -1,58 +1,45 @@
-.PHONY: help install start-backend stop-backend start-mobile install-watchman clean-mobile update-memecoins test-backend test-mobile
+.PHONY: install start-backend stop-backend start-mobile clean-mobile update-memecoins test-backend test-mobile
 
-# Default target when just running 'make'
-help:
-	@echo "Available commands:"
-	@echo "  make install           - Install all dependencies (backend & mobile)"
-	@echo "  make start-backend    - Start the backend services with Docker"
-	@echo "  make stop-backend     - Stop the backend services"
-	@echo "  make start-mobile     - Start the Expo development server"
-	@echo "  make install-watchman - Install Watchman (required for mobile development)"
-	@echo "  make clean-mobile     - Clean mobile app build and dependencies"
-	@echo "  make update-memecoins - Trigger memecoins update from API"
-	@echo "  make test-backend     - Run backend tests"
-	@echo "  make test-mobile      - Run mobile app tests"
-
-# Installation commands
-install: install-watchman
+# Install all dependencies
+install:
 	@echo "Installing backend dependencies..."
 	go mod tidy
 	@echo "Installing mobile app dependencies..."
-	cd MemeTraderMobileNew && npm install --legacy-peer-deps
+	cd MemeTraderMobile && npm install
 
-install-watchman:
-	@echo "Installing Watchman..."
-	brew install watchman
-
-# Backend commands
+# Start backend services
 start-backend:
 	@echo "Starting backend services..."
 	docker-compose down -v
 	docker-compose up --build -d
 
+# Stop backend services
 stop-backend:
 	@echo "Stopping backend services..."
-	docker-compose down
+	docker-compose down -v
 
+# Start mobile app
+start-mobile:
+	@echo "Starting mobile app..."
+	cd MemeTraderMobile && npx expo start
+
+# Clean mobile app build
+clean-mobile:
+	@echo "Cleaning mobile app build..."
+	cd MemeTraderMobile && rm -rf node_modules
+	cd MemeTraderMobile && npm install
+
+# Update meme coins
 update-memecoins:
-	@echo "Updating memecoins..."
+	@echo "Updating meme coins..."
 	curl -X POST http://localhost:8080/api/v1/memecoins/update
 
+# Run backend tests
 test-backend:
 	@echo "Running backend tests..."
 	go test ./... -v
 
-# Mobile commands
-start-mobile:
-	@echo "Starting Expo development server..."
-	cd MemeTraderMobileNew && npx expo start
-
-clean-mobile:
-	@echo "Cleaning mobile app..."
-	cd MemeTraderMobileNew && rm -rf node_modules
-	cd MemeTraderMobileNew && rm -rf .expo
-	cd MemeTraderMobileNew && npm cache clean --force
-
+# Run mobile app tests
 test-mobile:
 	@echo "Running mobile app tests..."
-	cd MemeTraderMobileNew && npm test 
+	cd MemeTraderMobile && npm test 

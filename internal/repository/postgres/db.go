@@ -24,6 +24,8 @@ type MemeCoin struct {
 	ContractAddress          string
 	DataProvider             string
 	LastUpdated              time.Time
+	LogoURL                  string
+	Description              string
 }
 
 type PriceHistory struct {
@@ -69,7 +71,9 @@ func createTables(db *sql.DB) error {
 			price_change_percentage_24h DOUBLE PRECISION,
 			contract_address TEXT NOT NULL,
 			data_provider TEXT NOT NULL,
-			last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+			last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			logo_url TEXT,
+			description TEXT
 		)
 	`)
 	if err != nil {
@@ -98,8 +102,8 @@ func (db *Database) UpdateMemeCoin(coin *MemeCoin) error {
 		INSERT INTO memecoins (
 			id, symbol, name, price, market_cap, volume_24h,
 			price_change_24h, price_change_percentage_24h, contract_address,
-			data_provider, last_updated
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+			data_provider, last_updated, logo_url, description
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, $11, $12)
 		ON CONFLICT (id) DO UPDATE SET
 			symbol = EXCLUDED.symbol,
 			name = EXCLUDED.name,
@@ -110,10 +114,12 @@ func (db *Database) UpdateMemeCoin(coin *MemeCoin) error {
 			price_change_percentage_24h = EXCLUDED.price_change_percentage_24h,
 			contract_address = EXCLUDED.contract_address,
 			data_provider = EXCLUDED.data_provider,
-			last_updated = CURRENT_TIMESTAMP
+			last_updated = CURRENT_TIMESTAMP,
+			logo_url = EXCLUDED.logo_url,
+			description = EXCLUDED.description
 	`, coin.ID, coin.Symbol, coin.Name, coin.Price, coin.MarketCap,
 		coin.Volume24h, coin.PriceChange24h, coin.PriceChangePercentage24h,
-		coin.ContractAddress, coin.DataProvider)
+		coin.ContractAddress, coin.DataProvider, coin.LogoURL, coin.Description)
 
 	if err != nil {
 		return fmt.Errorf("failed to update memecoin: %w", err)
@@ -126,7 +132,7 @@ func (db *Database) GetTopMemeCoins(limit int) ([]MemeCoin, error) {
 	rows, err := db.db.Query(`
 		SELECT id, symbol, name, price, market_cap, volume_24h,
 			price_change_24h, price_change_percentage_24h, contract_address,
-			data_provider, last_updated
+			data_provider, last_updated, logo_url, description
 		FROM memecoins
 		ORDER BY market_cap DESC
 		LIMIT $1
@@ -143,7 +149,8 @@ func (db *Database) GetTopMemeCoins(limit int) ([]MemeCoin, error) {
 			&coin.ID, &coin.Symbol, &coin.Name, &coin.Price,
 			&coin.MarketCap, &coin.Volume24h, &coin.PriceChange24h,
 			&coin.PriceChangePercentage24h, &coin.ContractAddress,
-			&coin.DataProvider, &coin.LastUpdated,
+			&coin.DataProvider, &coin.LastUpdated, &coin.LogoURL,
+			&coin.Description,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan memecoin: %w", err)
@@ -159,14 +166,15 @@ func (db *Database) GetMemeCoinByID(id string) (*MemeCoin, error) {
 	err := db.db.QueryRow(`
 		SELECT id, symbol, name, price, market_cap, volume_24h,
 			price_change_24h, price_change_percentage_24h, contract_address,
-			data_provider, last_updated
+			data_provider, last_updated, logo_url, description
 		FROM memecoins
 		WHERE id = $1
 	`, id).Scan(
 		&coin.ID, &coin.Symbol, &coin.Name, &coin.Price,
 		&coin.MarketCap, &coin.Volume24h, &coin.PriceChange24h,
 		&coin.PriceChangePercentage24h, &coin.ContractAddress,
-		&coin.DataProvider, &coin.LastUpdated,
+		&coin.DataProvider, &coin.LastUpdated, &coin.LogoURL,
+		&coin.Description,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get memecoin: %w", err)

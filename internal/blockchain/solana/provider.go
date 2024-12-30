@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"meme-trader/internal/blockchain"
+	"strconv"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -121,7 +122,7 @@ func (p *Provider) GetBalance(ctx context.Context, address string) (blockchain.A
 	}
 
 	return blockchain.Amount{
-		Value:    new(big.Int).SetUint64(balance),
+		Value:    new(big.Int).SetUint64(uint64(balance.Value)),
 		Decimals: solDecimals,
 	}, nil
 }
@@ -176,7 +177,11 @@ func (p *Provider) GetTransaction(ctx context.Context, txID string) (*blockchain
 		return nil, fmt.Errorf("invalid transaction ID: %w", err)
 	}
 
-	tx, err := p.rpcClient.GetTransaction(ctx, signature)
+	opts := &rpc.GetTransactionOpts{
+		Commitment: rpc.CommitmentFinalized,
+	}
+
+	tx, err := p.rpcClient.GetTransaction(ctx, signature, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction: %w", err)
 	}
@@ -184,7 +189,7 @@ func (p *Provider) GetTransaction(ctx context.Context, txID string) (*blockchain
 	// Convert Solana transaction to our generic Transaction type
 	// This is a simplified conversion
 	status := blockchain.TransactionStatusConfirmed
-	if !tx.Meta.Err.IsNil() {
+	if tx.Meta != nil && tx.Meta.Err != nil {
 		status = blockchain.TransactionStatusFailed
 	}
 
@@ -192,7 +197,7 @@ func (p *Provider) GetTransaction(ctx context.Context, txID string) (*blockchain
 		ID:            txID,
 		Network:       p.network,
 		Status:        status,
-		BlockHash:     tx.BlockHash.String(),
+		BlockHash:     strconv.FormatUint(uint64(tx.Slot), 10), // Use slot as block hash since we don't have access to the actual block hash
 		BlockNumber:   uint64(tx.Slot),
 		Signature:     txID,
 		Timestamp:     time.Now().Unix(), // You should get this from the block

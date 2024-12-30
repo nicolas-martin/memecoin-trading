@@ -46,7 +46,7 @@ func (h *MemeHandler) GetTopMemeCoins(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	coins, err := h.service.GetTopMemeCoins(limit)
+	coins, err := h.service.GetTopMemeCoins(r.Context(), limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -77,7 +77,7 @@ func (h *MemeHandler) GetMemeCoinDetail(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	coinID := vars["id"]
 
-	coin, history, err := h.service.GetMemeCoinDetail(coinID)
+	coin, history, err := h.service.GetMemeCoinDetail(r.Context(), coinID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -112,7 +112,7 @@ func (h *MemeHandler) GetMemeCoinDetail(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *MemeHandler) UpdateMemeCoins(w http.ResponseWriter, r *http.Request) {
-	if err := h.service.FetchAndUpdateMemeCoins(); err != nil {
+	if err := h.service.FetchAndUpdateMemeCoins(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

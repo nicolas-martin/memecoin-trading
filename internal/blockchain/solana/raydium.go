@@ -6,7 +6,7 @@ import (
 	"meme-trader/internal/blockchain"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/token"
+	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/rpc"
 )
 
@@ -62,11 +62,14 @@ func (c *RaydiumClient) SwapTokens(ctx context.Context, req SwapRequest) (*block
 		return nil, fmt.Errorf("failed to get recent blockhash: %w", err)
 	}
 
-	tx := solana.NewTransaction(
+	tx, err := solana.NewTransaction(
 		[]solana.Instruction{swapInstruction},
 		recentBlockhash.Value.Blockhash,
 		solana.TransactionPayer(fromPubKey),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
 
 	// Sign and send the transaction
 	sig, err := c.rpcClient.SendTransaction(ctx, tx)
@@ -124,11 +127,10 @@ func (c *RaydiumClient) getTokenAccount(ctx context.Context, owner solana.Public
 	_, err = c.rpcClient.GetAccountInfo(ctx, tokenAccount)
 	if err != nil {
 		// Create account if it doesn't exist
-		createIx := token.NewCreateAssociatedTokenAccountInstruction(
+		createIx := ata.NewCreateInstruction(
 			owner,
 			owner,
 			tokenMint,
-			tokenAccount,
 		).Build()
 
 		recentBlockhash, err := c.rpcClient.GetRecentBlockhash(ctx, rpc.CommitmentFinalized)
@@ -136,11 +138,14 @@ func (c *RaydiumClient) getTokenAccount(ctx context.Context, owner solana.Public
 			return solana.PublicKey{}, fmt.Errorf("failed to get recent blockhash: %w", err)
 		}
 
-		tx := solana.NewTransaction(
+		tx, err := solana.NewTransaction(
 			[]solana.Instruction{createIx},
 			recentBlockhash.Value.Blockhash,
 			solana.TransactionPayer(owner),
 		)
+		if err != nil {
+			return solana.PublicKey{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
 
 		_, err = c.rpcClient.SendTransaction(ctx, tx)
 		if err != nil {

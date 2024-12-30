@@ -1,20 +1,23 @@
 package memecoin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"meme-trader/internal/repository/postgres"
 	"net/http"
+	"strings"
 	"time"
 )
 
-// Provider defines the interface for meme coin data providers
+// Provider interface for fetching meme coins
 type Provider interface {
 	Name() string
-	FetchMemeCoins() ([]postgres.MemeCoin, error)
+	FetchMemeCoins(ctx context.Context) ([]postgres.MemeCoin, error)
 }
 
-// DexScreenerProvider implements the DexScreener API
+// DexScreenerProvider implements the Provider interface for DexScreener
 type DexScreenerProvider struct {
 	client *http.Client
 }
@@ -31,42 +34,87 @@ func (p *DexScreenerProvider) Name() string {
 	return "DexScreener"
 }
 
-func (p *DexScreenerProvider) FetchMemeCoins() ([]postgres.MemeCoin, error) {
-	resp, err := p.client.Get("https://api.dexscreener.com/latest/dex/search?q=solana")
+func (p *DexScreenerProvider) FetchMemeCoins(ctx context.Context) ([]postgres.MemeCoin, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.dexscreener.com/latest/dex/search?q=solana", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch from dexscreener: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch data: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var dexResp DexScreensResponse
-	if err := json.NewDecoder(resp.Body).Decode(&dexResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var response struct {
+		Pairs []struct {
+			ChainID     string `json:"chainId"`
+			DexID       string `json:"dexId"`
+			URL         string `json:"url"`
+			PairAddress string `json:"pairAddress"`
+			BaseToken   struct {
+				Address     string `json:"address"`
+				Name        string `json:"name"`
+				Symbol      string `json:"symbol"`
+				LogoURL     string `json:"logoURI"`
+				PriceUSD    string `json:"priceUSD"`
+				PriceChange struct {
+					H24 float64 `json:"h24"`
+				} `json:"priceChange"`
+			} `json:"baseToken"`
+			Volume struct {
+				H24 float64 `json:"h24"`
+			} `json:"volume"`
+		} `json:"pairs"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	var coins []postgres.MemeCoin
-	for _, pair := range dexResp.Pairs {
-		if pair.ChainId != "solana" {
+	seen := make(map[string]bool)
+
+	for _, pair := range response.Pairs {
+		if pair.ChainID != "solana" {
 			continue
+		}
+
+		if seen[pair.BaseToken.Address] {
+			continue
+		}
+
+		price := 0.0
+		if pair.BaseToken.PriceUSD != "" {
+			fmt.Sscanf(pair.BaseToken.PriceUSD, "%f", &price)
 		}
 
 		coin := postgres.MemeCoin{
 			ID:                       pair.BaseToken.Address,
 			Symbol:                   pair.BaseToken.Symbol,
 			Name:                     pair.BaseToken.Name,
-			Price:                    pair.PriceUsd,
-			MarketCap:                pair.MarketCap,
+			Price:                    price,
 			Volume24h:                pair.Volume.H24,
-			PriceChange24h:           pair.PriceChange.H24,
-			PriceChangePercentage24h: pair.PriceChange.H24,
+			PriceChangePercentage24h: pair.BaseToken.PriceChange.H24,
 			ContractAddress:          pair.BaseToken.Address,
+			DataProvider:             "DexScreener",
+			LastUpdated:              time.Now(),
+			LogoURL:                  pair.BaseToken.LogoURL,
 		}
+
 		coins = append(coins, coin)
+		seen[pair.BaseToken.Address] = true
 	}
 
 	return coins, nil
 }
 
-// CoinGeckoProvider implements the CoinGecko API
+// CoinGeckoProvider implements the Provider interface for CoinGecko
 type CoinGeckoProvider struct {
 	client *http.Client
 }
@@ -83,58 +131,58 @@ func (p *CoinGeckoProvider) Name() string {
 	return "CoinGecko"
 }
 
-type CoinGeckoResponse struct {
-	Coins []struct {
-		ID            string  `json:"id"`
-		Symbol        string  `json:"symbol"`
-		Name          string  `json:"name"`
-		CurrentPrice  float64 `json:"current_price"`
-		MarketCap     float64 `json:"market_cap"`
-		Volume24h     float64 `json:"total_volume"`
-		PriceChange24 float64 `json:"price_change_24h"`
-		PriceChange   float64 `json:"price_change_percentage_24h"`
-		Platforms     struct {
-			Solana string `json:"solana"`
-		} `json:"platforms"`
-	} `json:"coins"`
-}
-
-func (p *CoinGeckoProvider) FetchMemeCoins() ([]postgres.MemeCoin, error) {
-	resp, err := p.client.Get("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=meme-token&order=market_cap_desc&per_page=100&page=1&sparkline=false")
+func (p *CoinGeckoProvider) FetchMemeCoins(ctx context.Context) ([]postgres.MemeCoin, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=meme-token&order=market_cap_desc&per_page=100&page=1&sparkline=false", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch from coingecko: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch data: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var geckoResp CoinGeckoResponse
-	if err := json.NewDecoder(resp.Body).Decode(&geckoResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	var response []struct {
+		ID                       string  `json:"id"`
+		Symbol                   string  `json:"symbol"`
+		Name                     string  `json:"name"`
+		Image                    string  `json:"image"`
+		CurrentPrice             float64 `json:"current_price"`
+		MarketCap                float64 `json:"market_cap"`
+		TotalVolume              float64 `json:"total_volume"`
+		PriceChangePercentage24h float64 `json:"price_change_percentage_24h"`
+		PriceChange24h           float64 `json:"price_change_24h"`
+		ContractAddress          string  `json:"contract_address"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	var coins []postgres.MemeCoin
-	for _, coin := range geckoResp.Coins {
-		if coin.Platforms.Solana == "" {
-			continue
+	for _, item := range response {
+		coin := postgres.MemeCoin{
+			ID:                       item.ID,
+			Symbol:                   strings.ToUpper(item.Symbol),
+			Name:                     item.Name,
+			Price:                    item.CurrentPrice,
+			MarketCap:                item.MarketCap,
+			Volume24h:                item.TotalVolume,
+			PriceChange24h:           item.PriceChange24h,
+			PriceChangePercentage24h: item.PriceChangePercentage24h,
+			ContractAddress:          item.ContractAddress,
+			DataProvider:             "CoinGecko",
+			LastUpdated:              time.Now(),
+			LogoURL:                  item.Image,
 		}
-
-		memeCoin := postgres.MemeCoin{
-			ID:                       coin.ID,
-			Symbol:                   coin.Symbol,
-			Name:                     coin.Name,
-			Price:                    coin.CurrentPrice,
-			MarketCap:                coin.MarketCap,
-			Volume24h:                coin.Volume24h,
-			PriceChange24h:           coin.PriceChange24,
-			PriceChangePercentage24h: coin.PriceChange,
-			ContractAddress:          coin.Platforms.Solana,
-		}
-		coins = append(coins, memeCoin)
+		coins = append(coins, coin)
 	}
 
 	return coins, nil
 }
 
-// JupiterProvider implements the Jupiter API
+// JupiterProvider implements the Provider interface for Jupiter
 type JupiterProvider struct {
 	client *http.Client
 }
@@ -151,45 +199,60 @@ func (p *JupiterProvider) Name() string {
 	return "Jupiter"
 }
 
-type JupiterResponse struct {
-	Data []struct {
-		Address     string  `json:"address"`
-		Symbol      string  `json:"symbol"`
-		Name        string  `json:"name"`
-		Price       float64 `json:"price"`
-		MarketCap   float64 `json:"marketCap"`
-		Volume24h   float64 `json:"volume24h"`
-		PriceChange struct {
-			Percentage24h float64 `json:"percentage24h"`
-			Value24h      float64 `json:"value24h"`
-		} `json:"priceChange"`
-	} `json:"data"`
-}
-
-func (p *JupiterProvider) FetchMemeCoins() ([]postgres.MemeCoin, error) {
-	resp, err := p.client.Get("https://price.jup.ag/v4/token-list")
+func (p *JupiterProvider) FetchMemeCoins(ctx context.Context) ([]postgres.MemeCoin, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://token.jup.ag/all", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch from jupiter: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch data: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var jupResp JupiterResponse
-	if err := json.NewDecoder(resp.Body).Decode(&jupResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	var response struct {
+		Tokens []struct {
+			Address   string   `json:"address"`
+			Symbol    string   `json:"symbol"`
+			Name      string   `json:"name"`
+			LogoURI   string   `json:"logoURI"`
+			Price     float64  `json:"price"`
+			Volume24h float64  `json:"volume24h"`
+			MarketCap float64  `json:"marketCap"`
+			Tags      []string `json:"tags"`
+		} `json:"tokens"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	var coins []postgres.MemeCoin
-	for _, token := range jupResp.Data {
+	for _, token := range response.Tokens {
+		// Filter for meme tokens
+		isMeme := false
+		for _, tag := range token.Tags {
+			if strings.Contains(strings.ToLower(tag), "meme") {
+				isMeme = true
+				break
+			}
+		}
+		if !isMeme {
+			continue
+		}
+
 		coin := postgres.MemeCoin{
-			ID:                       token.Address,
-			Symbol:                   token.Symbol,
-			Name:                     token.Name,
-			Price:                    token.Price,
-			MarketCap:                token.MarketCap,
-			Volume24h:                token.Volume24h,
-			PriceChange24h:           token.PriceChange.Value24h,
-			PriceChangePercentage24h: token.PriceChange.Percentage24h,
-			ContractAddress:          token.Address,
+			ID:              token.Address,
+			Symbol:          token.Symbol,
+			Name:            token.Name,
+			Price:           token.Price,
+			MarketCap:       token.MarketCap,
+			Volume24h:       token.Volume24h,
+			ContractAddress: token.Address,
+			DataProvider:    "Jupiter",
+			LastUpdated:     time.Now(),
+			LogoURL:         token.LogoURI,
 		}
 		coins = append(coins, coin)
 	}
