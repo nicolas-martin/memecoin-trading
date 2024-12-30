@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"meme-trader/internal/repository/postgres"
 	"net/http"
 	"strings"
@@ -160,8 +161,12 @@ func (p *CoinGeckoProvider) FetchMemeCoins(ctx context.Context) ([]postgres.Meme
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	log.Printf("CoinGecko: Found %d meme tokens", len(response))
+
 	var coins []postgres.MemeCoin
 	for _, item := range response {
+		log.Printf("CoinGecko: Processing token %s (%s) with logo: %s", item.Name, item.Symbol, item.Image)
+
 		coin := postgres.MemeCoin{
 			ID:                       item.ID,
 			Symbol:                   strings.ToUpper(item.Symbol),
@@ -179,6 +184,7 @@ func (p *CoinGeckoProvider) FetchMemeCoins(ctx context.Context) ([]postgres.Meme
 		coins = append(coins, coin)
 	}
 
+	log.Printf("CoinGecko: Processed %d meme tokens", len(coins))
 	return coins, nil
 }
 
@@ -211,35 +217,79 @@ func (p *JupiterProvider) FetchMemeCoins(ctx context.Context) ([]postgres.MemeCo
 	}
 	defer resp.Body.Close()
 
-	var response struct {
-		Tokens []struct {
-			Address   string   `json:"address"`
-			Symbol    string   `json:"symbol"`
-			Name      string   `json:"name"`
-			LogoURI   string   `json:"logoURI"`
-			Price     float64  `json:"price"`
-			Volume24h float64  `json:"volume24h"`
-			MarketCap float64  `json:"marketCap"`
-			Tags      []string `json:"tags"`
-		} `json:"tokens"`
+	var tokens []struct {
+		Address   string   `json:"address"`
+		Symbol    string   `json:"symbol"`
+		Name      string   `json:"name"`
+		LogoURI   string   `json:"logoURI"`
+		Price     float64  `json:"price"`
+		Volume24h float64  `json:"volume24h"`
+		MarketCap float64  `json:"marketCap"`
+		Tags      []string `json:"tags"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&tokens); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	log.Printf("Jupiter: Found %d total tokens", len(tokens))
+
 	var coins []postgres.MemeCoin
-	for _, token := range response.Tokens {
-		// Filter for meme tokens
+	memeCount := 0
+	for _, token := range tokens {
+		// Filter for meme tokens using more lenient criteria
 		isMeme := false
+		tokenNameLower := strings.ToLower(token.Name)
+		tokenSymbolLower := strings.ToLower(token.Symbol)
+
+		// Check tags first
 		for _, tag := range token.Tags {
 			if strings.Contains(strings.ToLower(tag), "meme") {
 				isMeme = true
 				break
 			}
 		}
+
+		// If not found in tags, check name and symbol for common meme indicators
+		if !isMeme {
+			memeIndicators := []string{
+				"doge", "shib", "pepe", "wojak", "chad", "inu", "cat",
+				"moon", "elon", "safe", "baby", "rocket", "meme", "bonk",
+				"floki", "cheems", "frog", "ape", "monkey", "dog", "wow",
+				"based", "wagmi", "gm", "chad", "whale", "bear", "bull",
+				"wojak", "nft", "moon", "lambo", "tendies", "diamond",
+				"hands", "hodl", "fomo", "yolo", "wen", "ser", "ngmi",
+			}
+
+			for _, indicator := range memeIndicators {
+				if strings.Contains(tokenNameLower, indicator) || strings.Contains(tokenSymbolLower, indicator) {
+					isMeme = true
+					break
+				}
+			}
+		}
+
 		if !isMeme {
 			continue
+		}
+		memeCount++
+
+		// Log token details for debugging
+		log.Printf("Jupiter: Processing meme token: %s (%s)", token.Name, token.Address)
+		log.Printf("Jupiter: Original LogoURI: %s", token.LogoURI)
+
+		// Ensure we have a valid logo URL
+		logoURL := token.LogoURI
+		if !strings.HasPrefix(logoURL, "http") && !strings.HasPrefix(logoURL, "https") {
+			// Try to construct a valid URL if it's a relative path
+			if strings.HasPrefix(logoURL, "/") {
+				logoURL = "https://token.jup.ag" + logoURL
+				log.Printf("Jupiter: Converted relative path to: %s", logoURL)
+			} else {
+				// If no logo URL is provided, try to get it from another source
+				logoURL = fmt.Sprintf("https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/%s/logo.png", token.Address)
+				log.Printf("Jupiter: Using fallback logo URL: %s", logoURL)
+			}
 		}
 
 		coin := postgres.MemeCoin{
@@ -252,10 +302,11 @@ func (p *JupiterProvider) FetchMemeCoins(ctx context.Context) ([]postgres.MemeCo
 			ContractAddress: token.Address,
 			DataProvider:    "Jupiter",
 			LastUpdated:     time.Now(),
-			LogoURL:         token.LogoURI,
+			LogoURL:         logoURL,
 		}
 		coins = append(coins, coin)
 	}
 
+	log.Printf("Jupiter: Found %d meme tokens out of %d total tokens", memeCount, len(tokens))
 	return coins, nil
 }
