@@ -1,88 +1,214 @@
 package postgres
 
 import (
+	"database/sql"
 	"fmt"
-	"meme-trader/internal/config"
+	"time"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	_ "github.com/lib/pq"
 )
 
 type Database struct {
-	DB *gorm.DB
+	db *sql.DB
 }
 
 type MemeCoin struct {
-	ID                       string `gorm:"primaryKey"`
+	ID                       string
 	Symbol                   string
 	Name                     string
-	LogoURL                  string
 	Price                    float64
 	MarketCap                float64
 	Volume24h                float64
 	PriceChange24h           float64
 	PriceChangePercentage24h float64
 	ContractAddress          string
-	Description              string
+	DataProvider             string
+	LastUpdated              time.Time
 }
 
 type PriceHistory struct {
-	ID        uint `gorm:"primaryKey"`
 	CoinID    string
 	Price     float64
 	Volume    float64
 	Timestamp int64
 }
 
-func NewDatabase(cfg *config.Config) (*Database, error) {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName)
-
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+func NewDatabase(connStr string) (*Database, error) {
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Auto-migrate the schemas
-	err = db.AutoMigrate(&MemeCoin{}, &PriceHistory{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %w", err)
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &Database{DB: db}, nil
+	// Create tables if they don't exist
+	if err := createTables(db); err != nil {
+		return nil, fmt.Errorf("failed to create tables: %w", err)
+	}
+
+	return &Database{db: db}, nil
 }
 
-func (d *Database) GetTopMemeCoins(limit int) ([]MemeCoin, error) {
-	var coins []MemeCoin
-	err := d.DB.Order("market_cap DESC").Limit(limit).Find(&coins).Error
+func createTables(db *sql.DB) error {
+	// Create memecoins table
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS memecoins (
+			id TEXT PRIMARY KEY,
+			symbol TEXT NOT NULL,
+			name TEXT NOT NULL,
+			price DOUBLE PRECISION NOT NULL,
+			market_cap DOUBLE PRECISION,
+			volume_24h DOUBLE PRECISION,
+			price_change_24h DOUBLE PRECISION,
+			price_change_percentage_24h DOUBLE PRECISION,
+			contract_address TEXT NOT NULL,
+			data_provider TEXT NOT NULL,
+			last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get top meme coins: %w", err)
+		return fmt.Errorf("failed to create memecoins table: %w", err)
 	}
+
+	// Create price_history table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS price_history (
+			coin_id TEXT REFERENCES memecoins(id),
+			price DOUBLE PRECISION NOT NULL,
+			volume DOUBLE PRECISION,
+			timestamp BIGINT NOT NULL,
+			PRIMARY KEY (coin_id, timestamp)
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create price_history table: %w", err)
+	}
+
+	return nil
+}
+
+func (db *Database) UpdateMemeCoin(coin *MemeCoin) error {
+	_, err := db.db.Exec(`
+		INSERT INTO memecoins (
+			id, symbol, name, price, market_cap, volume_24h,
+			price_change_24h, price_change_percentage_24h, contract_address,
+			data_provider, last_updated
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+		ON CONFLICT (id) DO UPDATE SET
+			symbol = EXCLUDED.symbol,
+			name = EXCLUDED.name,
+			price = EXCLUDED.price,
+			market_cap = EXCLUDED.market_cap,
+			volume_24h = EXCLUDED.volume_24h,
+			price_change_24h = EXCLUDED.price_change_24h,
+			price_change_percentage_24h = EXCLUDED.price_change_percentage_24h,
+			contract_address = EXCLUDED.contract_address,
+			data_provider = EXCLUDED.data_provider,
+			last_updated = CURRENT_TIMESTAMP
+	`, coin.ID, coin.Symbol, coin.Name, coin.Price, coin.MarketCap,
+		coin.Volume24h, coin.PriceChange24h, coin.PriceChangePercentage24h,
+		coin.ContractAddress, coin.DataProvider)
+
+	if err != nil {
+		return fmt.Errorf("failed to update memecoin: %w", err)
+	}
+
+	return nil
+}
+
+func (db *Database) GetTopMemeCoins(limit int) ([]MemeCoin, error) {
+	rows, err := db.db.Query(`
+		SELECT id, symbol, name, price, market_cap, volume_24h,
+			price_change_24h, price_change_percentage_24h, contract_address,
+			data_provider, last_updated
+		FROM memecoins
+		ORDER BY market_cap DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top memecoins: %w", err)
+	}
+	defer rows.Close()
+
+	var coins []MemeCoin
+	for rows.Next() {
+		var coin MemeCoin
+		err := rows.Scan(
+			&coin.ID, &coin.Symbol, &coin.Name, &coin.Price,
+			&coin.MarketCap, &coin.Volume24h, &coin.PriceChange24h,
+			&coin.PriceChangePercentage24h, &coin.ContractAddress,
+			&coin.DataProvider, &coin.LastUpdated,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan memecoin: %w", err)
+		}
+		coins = append(coins, coin)
+	}
+
 	return coins, nil
 }
 
-func (d *Database) GetMemeCoinByID(id string) (*MemeCoin, error) {
+func (db *Database) GetMemeCoinByID(id string) (*MemeCoin, error) {
 	var coin MemeCoin
-	err := d.DB.First(&coin, "id = ?", id).Error
+	err := db.db.QueryRow(`
+		SELECT id, symbol, name, price, market_cap, volume_24h,
+			price_change_24h, price_change_percentage_24h, contract_address,
+			data_provider, last_updated
+		FROM memecoins
+		WHERE id = $1
+	`, id).Scan(
+		&coin.ID, &coin.Symbol, &coin.Name, &coin.Price,
+		&coin.MarketCap, &coin.Volume24h, &coin.PriceChange24h,
+		&coin.PriceChangePercentage24h, &coin.ContractAddress,
+		&coin.DataProvider, &coin.LastUpdated,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get meme coin: %w", err)
+		return nil, fmt.Errorf("failed to get memecoin: %w", err)
 	}
+
 	return &coin, nil
 }
 
-func (d *Database) GetPriceHistory(coinID string) ([]PriceHistory, error) {
-	var history []PriceHistory
-	err := d.DB.Where("coin_id = ?", coinID).Order("timestamp DESC").Find(&history).Error
+func (db *Database) AddPriceHistory(history *PriceHistory) error {
+	_, err := db.db.Exec(`
+		INSERT INTO price_history (coin_id, price, volume, timestamp)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (coin_id, timestamp) DO UPDATE SET
+			price = EXCLUDED.price,
+			volume = EXCLUDED.volume
+	`, history.CoinID, history.Price, history.Volume, history.Timestamp)
+
+	if err != nil {
+		return fmt.Errorf("failed to add price history: %w", err)
+	}
+
+	return nil
+}
+
+func (db *Database) GetPriceHistory(coinID string) ([]PriceHistory, error) {
+	rows, err := db.db.Query(`
+		SELECT coin_id, price, volume, timestamp
+		FROM price_history
+		WHERE coin_id = $1
+		ORDER BY timestamp DESC
+		LIMIT 100
+	`, coinID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get price history: %w", err)
 	}
+	defer rows.Close()
+
+	var history []PriceHistory
+	for rows.Next() {
+		var h PriceHistory
+		err := rows.Scan(&h.CoinID, &h.Price, &h.Volume, &h.Timestamp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan price history: %w", err)
+		}
+		history = append(history, h)
+	}
+
 	return history, nil
-}
-
-func (d *Database) UpdateMemeCoin(coin *MemeCoin) error {
-	return d.DB.Save(coin).Error
-}
-
-func (d *Database) AddPriceHistory(history *PriceHistory) error {
-	return d.DB.Create(history).Error
 }
