@@ -1,4 +1,4 @@
-.PHONY: install start-backend stop-backend start-mobile clean-mobile update-memecoins test-backend test-mobile
+.PHONY: install start-backend stop-backend start-mobile clean-mobile update-memecoins test-backend test-mobile test-blockchain test-providers test-coverage
 
 # Install all dependencies
 install:
@@ -34,10 +34,31 @@ update-memecoins:
 	@echo "Updating meme coins..."
 	curl -X POST http://localhost:8080/api/v1/memecoins/update
 
-# Run backend tests
+# Run all backend tests
 test-backend:
 	@echo "Running backend tests..."
+	go clean -testcache
 	go test ./... -v
+
+# Run blockchain provider tests
+test-blockchain:
+	@echo "Running blockchain provider tests..."
+	go clean -testcache
+	go test ./internal/blockchain/... -v
+
+# Run specific provider tests
+test-providers:
+	@echo "Running provider tests..."
+	go clean -testcache
+	go test ./internal/blockchain/solana/... -v
+
+# Run tests with coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	go clean -testcache
+	go test ./... -coverprofile=coverage.out
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated at coverage.html"
 
 # Run mobile app tests
 test-mobile:

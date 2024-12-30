@@ -1,16 +1,16 @@
 import React, { useEffect } from 'react';
 import {
   View,
-  FlatList,
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  ScrollView,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import { RootState, AppDispatch } from '../store';
 import { fetchMemeCoins, updateMemeCoinsList } from '../store/memeCoinsSlice';
-import { CoinListItem } from '../components/CoinList/CoinListItem';
+import { CoinTable } from '../components/CoinList/CoinTable';
 import { MemeCoin } from '../services/api';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -47,18 +47,14 @@ export const MainScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={coins}
-        renderItem={({ item }) => (
-          <CoinListItem coin={item} onPress={handleCoinPress} />
-        )}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
-        }
-      />
-    </View>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
+      }
+    >
+      <CoinTable coins={coins} onCoinPress={handleCoinPress} />
+    </ScrollView>
   );
 };
 
