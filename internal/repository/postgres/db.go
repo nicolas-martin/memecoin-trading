@@ -48,6 +48,10 @@ func NewDatabase(connStr string) (*Database, error) {
 		return nil, fmt.Errorf("failed to create tables: %w", err)
 	}
 
+	if err := createBlockchainTables(db); err != nil {
+		return nil, fmt.Errorf("failed to create blockchain tables: %w", err)
+	}
+
 	return &Database{db: db}, nil
 }
 
