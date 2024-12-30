@@ -88,7 +88,7 @@ export interface MemeCoin {
   id: string;
   symbol: string;
   name: string;
-  logoUrl: string;
+  LogoURL: string;
   price: number;
   marketCap: number;
   volume24h: number;

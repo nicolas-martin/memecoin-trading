@@ -56,7 +56,7 @@ export const CoinTable: React.FC<CoinTableProps> = ({ coins = [], onCoinPress })
       <Text style={[styles.cell, styles.rankCell]}>{index + 1}</Text>
       <View style={[styles.nameContainer, { width: styles.nameCell.width }]}>
         <Image
-          source={coin.logoUrl ? { uri: coin.logoUrl } : require('../../../assets/placeholder.png')}
+          source={coin.LogoURL ? { uri: coin.LogoURL } : require('../../../assets/placeholder.png')}
           style={styles.logo}
           onError={(e) => {
             console.log('Image loading error:', e.nativeEvent.error);

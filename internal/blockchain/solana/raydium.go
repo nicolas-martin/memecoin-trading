@@ -3,8 +3,10 @@ package solana
 import (
 	"context"
 	"fmt"
+	"log"
 	"meme-trader/internal/blockchain"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -53,9 +55,121 @@ func (c *RaydiumClient) GetTopMemeCoins(ctx context.Context, req RaydiumTopMemeC
 
 // getAllPools fetches all liquidity pools from Raydium
 func (c *RaydiumClient) getAllPools(ctx context.Context) ([]RaydiumPool, error) {
-	// TODO: Implement actual Raydium API call to fetch pools
-	// This is a placeholder that should be replaced with actual implementation
+	// Fetch pools from Raydium API
+	pools, err := c.fetchRaydiumPools(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Raydium pools: %w", err)
+	}
+
+	// Enrich pool data with token metadata
+	enrichedPools := make([]RaydiumPool, 0, len(pools))
+	for _, pool := range pools {
+		// Get token metadata from Jupiter API or token list
+		metadata, err := c.getTokenMetadata(ctx, pool.TokenAddress)
+		if err != nil {
+			continue // Skip tokens we can't get metadata for
+		}
+
+		// Check if it's a meme coin based on metadata
+		isMemeCoin := c.isMemeCoin(metadata)
+		if !isMemeCoin {
+			continue
+		}
+
+		enrichedPool := RaydiumPool{
+			TokenAddress:   pool.TokenAddress,
+			Symbol:         metadata.Symbol,
+			Name:           metadata.Name,
+			LogoURL:        metadata.LogoURL,
+			Price:          pool.Price,
+			MarketCap:      pool.MarketCap,
+			Volume24h:      pool.Volume24h,
+			PriceChange24h: pool.PriceChange24h,
+			LastUpdated:    time.Now(),
+			IsMemeCoin:     true,
+		}
+
+		enrichedPools = append(enrichedPools, enrichedPool)
+	}
+
+	return enrichedPools, nil
+}
+
+// TokenMetadata represents metadata for a token
+type TokenMetadata struct {
+	Symbol     string
+	Name       string
+	LogoURL    string
+	Tags       []string
+	Extensions map[string]interface{}
+}
+
+// fetchRaydiumPools fetches raw pool data from Raydium
+func (c *RaydiumClient) fetchRaydiumPools(ctx context.Context) ([]RaydiumPool, error) {
+	// TODO: Implement actual Raydium API call
+	// For now, return test data
 	return []RaydiumPool{}, nil
+}
+
+// getTokenMetadata fetches token metadata from Jupiter API or token list
+func (c *RaydiumClient) getTokenMetadata(ctx context.Context, tokenAddress string) (*TokenMetadata, error) {
+	// First try Jupiter API
+	metadata, err := c.getJupiterTokenMetadata(ctx, tokenAddress)
+	if err == nil {
+		return metadata, nil
+	}
+
+	// Fallback to token list
+	return c.getTokenListMetadata(ctx, tokenAddress)
+}
+
+// getJupiterTokenMetadata fetches token metadata from Jupiter API
+func (c *RaydiumClient) getJupiterTokenMetadata(ctx context.Context, tokenAddress string) (*TokenMetadata, error) {
+	jupiterEndpoint := "https://token.jup.ag/all"
+
+	// Log the endpoint we're using
+	log.Printf("Fetching token metadata from Jupiter API: %s", jupiterEndpoint)
+
+	// TODO: Implement Jupiter API call
+	return nil, fmt.Errorf("not implemented: %s", jupiterEndpoint)
+}
+
+// getTokenListMetadata fetches token metadata from Solana token list
+func (c *RaydiumClient) getTokenListMetadata(ctx context.Context, tokenAddress string) (*TokenMetadata, error) {
+	tokenListEndpoint := "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json"
+
+	// Log the endpoint we're using
+	log.Printf("Fetching token metadata from Solana token list: %s", tokenListEndpoint)
+
+	// TODO: Implement token list fetch
+	return nil, fmt.Errorf("not implemented: %s", tokenListEndpoint)
+}
+
+// isMemeCoin determines if a token is a meme coin based on its metadata
+func (c *RaydiumClient) isMemeCoin(metadata *TokenMetadata) bool {
+	// Check tags
+	for _, tag := range metadata.Tags {
+		if tag == "meme" || tag == "memecoin" {
+			return true
+		}
+	}
+
+	// Check name/symbol for common meme coin indicators
+	memeKeywords := []string{
+		"doge", "shib", "inu", "pepe", "wojak", "moon", "elon",
+		"safe", "baby", "rocket", "chad", "based", "wagmi", "frog",
+	}
+
+	nameLower := strings.ToLower(metadata.Name)
+	symbolLower := strings.ToLower(metadata.Symbol)
+
+	for _, keyword := range memeKeywords {
+		if strings.Contains(nameLower, keyword) || strings.Contains(symbolLower, keyword) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // RaydiumPool represents a liquidity pool on Raydium
@@ -63,6 +177,7 @@ type RaydiumPool struct {
 	TokenAddress   string
 	Symbol         string
 	Name           string
+	LogoURL        string
 	Price          blockchain.Amount
 	MarketCap      blockchain.Amount
 	Volume24h      blockchain.Amount
@@ -86,6 +201,7 @@ func (c *RaydiumClient) filterAndSortMemePools(pools []RaydiumPool, timeFrame ti
 			Address:     pool.TokenAddress,
 			Symbol:      pool.Symbol,
 			Name:        pool.Name,
+			LogoURL:     pool.LogoURL,
 			Price:       pool.Price,
 			MarketCap:   pool.MarketCap,
 			Volume24h:   pool.Volume24h,

@@ -73,6 +73,7 @@ type MemeCoin struct {
 	Address     string
 	Symbol      string
 	Name        string
+	LogoURL     string // URL to the coin's logo image
 	Price       Amount
 	MarketCap   Amount
 	Volume24h   Amount
