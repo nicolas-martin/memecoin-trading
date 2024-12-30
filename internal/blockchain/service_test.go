@@ -90,29 +90,18 @@ func TestRegisterProvider(t *testing.T) {
 	err := service.RegisterProvider(mockProvider)
 	assert.NoError(t, err, "Should register provider without error")
 
-	// Try to register the same provider again
-	err = service.RegisterProvider(mockProvider)
-	assert.Error(t, err, "Should not allow registering the same provider twice")
-}
-
-func TestGetProvider(t *testing.T) {
-	service := NewService()
-	mockProvider := new(MockProvider)
-	mockProvider.On("Network").Return(NetworkSolana)
-
-	// Try to get provider before registration
-	provider, err := service.GetProvider(NetworkSolana)
-	assert.Error(t, err, "Should error when getting unregistered provider")
-	assert.Nil(t, provider, "Provider should be nil")
-
-	// Register provider
-	err = service.RegisterProvider(mockProvider)
-	assert.NoError(t, err, "Should register provider without error")
-
-	// Get registered provider
-	provider, err = service.GetProvider(NetworkSolana)
-	assert.NoError(t, err, "Should get registered provider without error")
-	assert.NotNil(t, provider, "Provider should not be nil")
+	// Register another provider with different priority
+	mockProvider2 := new(MockProvider)
+	mockProvider2.On("Network").Return(NetworkSolana)
+	config := ProviderConfig{
+		Priority:           1,
+		RequestsPerWindow:  200,
+		WindowDuration:     time.Minute,
+		HealthCheckPeriod:  time.Minute,
+		MaxConsecutiveErrs: 5,
+	}
+	err = service.RegisterProviderWithConfig(mockProvider2, config)
+	assert.NoError(t, err, "Should register second provider without error")
 }
 
 func TestCreateWallet(t *testing.T) {
@@ -215,31 +204,51 @@ func TestSellTransaction(t *testing.T) {
 	assert.Equal(t, expectedTx, tx, "Should return expected transaction")
 }
 
-func TestGetTransaction(t *testing.T) {
+func TestProviderFallback(t *testing.T) {
 	service := NewService()
-	mockProvider := new(MockProvider)
-	mockProvider.On("Network").Return(NetworkSolana)
 
-	expectedTx := &Transaction{
-		ID:            "test-tx",
-		Network:       NetworkSolana,
-		Type:          TransactionTypeBuy,
-		Status:        TransactionStatusConfirmed,
-		FromAddress:   "test-from",
-		ToAddress:     "test-to",
-		TokenAddress:  "test-token",
-		CreatedAt:     time.Now().Unix(),
-		LastUpdatedAt: time.Now().Unix(),
+	// Create two providers with different priorities
+	mockProvider1 := new(MockProvider)
+	mockProvider1.On("Network").Return(NetworkSolana)
+	mockProvider2 := new(MockProvider)
+	mockProvider2.On("Network").Return(NetworkSolana)
+
+	// Register providers with different priorities
+	err := service.RegisterProviderWithConfig(mockProvider1, ProviderConfig{
+		Priority:           1,
+		RequestsPerWindow:  100,
+		WindowDuration:     time.Minute,
+		HealthCheckPeriod:  time.Minute,
+		MaxConsecutiveErrs: 3,
+	})
+	assert.NoError(t, err)
+
+	err = service.RegisterProviderWithConfig(mockProvider2, ProviderConfig{
+		Priority:           2,
+		RequestsPerWindow:  100,
+		WindowDuration:     time.Minute,
+		HealthCheckPeriod:  time.Minute,
+		MaxConsecutiveErrs: 3,
+	})
+	assert.NoError(t, err)
+
+	// Set up mock responses
+	expectedWallet := &Wallet{
+		ID:      "test-wallet",
+		Network: NetworkSolana,
+		Address: "test-address",
 	}
 
-	mockProvider.On("GetTransaction", mock.Anything, "test-tx").Return(expectedTx, nil)
+	// First provider fails
+	mockProvider1.On("CreateWallet", mock.Anything).Return(nil, assert.AnError)
+	// Second provider succeeds
+	mockProvider2.On("CreateWallet", mock.Anything).Return(expectedWallet, nil)
 
-	// Register provider
-	err := service.RegisterProvider(mockProvider)
-	assert.NoError(t, err, "Should register provider without error")
+	// Test fallback
+	wallet, err := service.CreateWallet(context.Background(), NetworkSolana)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedWallet, wallet)
 
-	// Get transaction
-	tx, err := service.GetTransaction(context.Background(), NetworkSolana, "test-tx")
-	assert.NoError(t, err, "Should get transaction without error")
-	assert.Equal(t, expectedTx, tx, "Should return expected transaction")
+	mockProvider1.AssertExpectations(t)
+	mockProvider2.AssertExpectations(t)
 }

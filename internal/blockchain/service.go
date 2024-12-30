@@ -2,115 +2,110 @@ package blockchain
 
 import (
 	"context"
-	"fmt"
-	"sync"
+	"time"
 )
 
 type service struct {
-	providers map[Network]Provider
-	mu        sync.RWMutex
+	manager *ProviderManager
 }
 
 // NewService creates a new blockchain service
 func NewService() Service {
 	return &service{
-		providers: make(map[Network]Provider),
+		manager: NewProviderManager(),
 	}
 }
 
-// RegisterProvider registers a new blockchain provider
+// RegisterProvider registers a new blockchain provider with default configuration
 func (s *service) RegisterProvider(provider Provider) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	network := provider.Network()
-	if _, exists := s.providers[network]; exists {
-		return fmt.Errorf("provider for network %s already registered", network)
+	config := ProviderConfig{
+		Priority:           10, // Default priority
+		RequestsPerWindow:  100,
+		WindowDuration:     time.Minute,
+		HealthCheckPeriod:  time.Minute,
+		MaxConsecutiveErrs: 3,
 	}
-
-	s.providers[network] = provider
-	return nil
+	return s.manager.RegisterProvider(provider, config)
 }
 
-// GetProvider returns the provider for the specified network
-func (s *service) GetProvider(network Network) (Provider, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	provider, exists := s.providers[network]
-	if !exists {
-		return nil, fmt.Errorf("no provider registered for network %s", network)
-	}
-
-	return provider, nil
+// RegisterProviderWithConfig registers a new blockchain provider with custom configuration
+func (s *service) RegisterProviderWithConfig(provider Provider, config ProviderConfig) error {
+	return s.manager.RegisterProvider(provider, config)
 }
 
 // CreateWallet creates a new wallet for the specified network
 func (s *service) CreateWallet(ctx context.Context, network Network) (*Wallet, error) {
-	provider, err := s.GetProvider(network)
-	if err != nil {
-		return nil, err
-	}
-
-	return provider.CreateWallet(ctx)
+	var wallet *Wallet
+	err := s.manager.executeWithFallback(ctx, network, func(provider Provider) error {
+		var err error
+		wallet, err = provider.CreateWallet(ctx)
+		return err
+	})
+	return wallet, err
 }
 
 // GetWallet retrieves a wallet by its address
 func (s *service) GetWallet(ctx context.Context, network Network, address string) (*Wallet, error) {
-	provider, err := s.GetProvider(network)
-	if err != nil {
-		return nil, err
-	}
-
-	return provider.GetWallet(ctx, address)
+	var wallet *Wallet
+	err := s.manager.executeWithFallback(ctx, network, func(provider Provider) error {
+		var err error
+		wallet, err = provider.GetWallet(ctx, address)
+		return err
+	})
+	return wallet, err
 }
 
 // GetBalance retrieves the balance for a wallet
 func (s *service) GetBalance(ctx context.Context, network Network, address string) (Amount, error) {
-	provider, err := s.GetProvider(network)
-	if err != nil {
-		return Amount{}, err
-	}
-
-	return provider.GetBalance(ctx, address)
+	var balance Amount
+	err := s.manager.executeWithFallback(ctx, network, func(provider Provider) error {
+		var err error
+		balance, err = provider.GetBalance(ctx, address)
+		return err
+	})
+	return balance, err
 }
 
 // Buy executes a buy transaction
 func (s *service) Buy(ctx context.Context, network Network, req BuyRequest) (*Transaction, error) {
-	provider, err := s.GetProvider(network)
-	if err != nil {
-		return nil, err
-	}
-
-	return provider.Buy(ctx, req)
+	var tx *Transaction
+	err := s.manager.executeWithFallback(ctx, network, func(provider Provider) error {
+		var err error
+		tx, err = provider.Buy(ctx, req)
+		return err
+	})
+	return tx, err
 }
 
 // Sell executes a sell transaction
 func (s *service) Sell(ctx context.Context, network Network, req SellRequest) (*Transaction, error) {
-	provider, err := s.GetProvider(network)
-	if err != nil {
-		return nil, err
-	}
-
-	return provider.Sell(ctx, req)
+	var tx *Transaction
+	err := s.manager.executeWithFallback(ctx, network, func(provider Provider) error {
+		var err error
+		tx, err = provider.Sell(ctx, req)
+		return err
+	})
+	return tx, err
 }
 
 // GetTransaction retrieves a transaction by its ID
 func (s *service) GetTransaction(ctx context.Context, network Network, txID string) (*Transaction, error) {
-	provider, err := s.GetProvider(network)
-	if err != nil {
-		return nil, err
-	}
-
-	return provider.GetTransaction(ctx, txID)
+	var tx *Transaction
+	err := s.manager.executeWithFallback(ctx, network, func(provider Provider) error {
+		var err error
+		tx, err = provider.GetTransaction(ctx, txID)
+		return err
+	})
+	return tx, err
 }
 
 // GetTransactions retrieves transactions for a wallet
 func (s *service) GetTransactions(ctx context.Context, network Network, address string, limit int) ([]Transaction, error) {
-	provider, err := s.GetProvider(network)
-	if err != nil {
-		return nil, err
-	}
-
-	return provider.GetTransactions(ctx, address, limit)
+	var txs []Transaction
+	err := s.manager.executeWithFallback(ctx, network, func(provider Provider) error {
+		var err error
+		txs, err = provider.GetTransactions(ctx, address, limit)
+		return err
+	})
+	return txs, err
 }

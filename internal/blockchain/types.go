@@ -105,7 +105,7 @@ type SellRequest struct {
 type Service interface {
 	// Provider management
 	RegisterProvider(provider Provider) error
-	GetProvider(network Network) (Provider, error)
+	RegisterProviderWithConfig(provider Provider, config ProviderConfig) error
 
 	// Wallet operations
 	CreateWallet(ctx context.Context, network Network) (*Wallet, error)
