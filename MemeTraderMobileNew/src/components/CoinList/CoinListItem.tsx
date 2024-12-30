@@ -30,8 +30,8 @@ export const CoinListItem: React.FC<CoinListItemProps> = ({ coin, onPress }) => 
       activeOpacity={0.7}
     >
       <View style={styles.leftContainer}>
-        {coin.logoUrl ? (
-          <Image source={{ uri: coin.logoUrl }} style={styles.logo} />
+        {coin.LogoURL ? (
+          <Image source={{ uri: coin.LogoURL }} style={styles.logo} />
         ) : (
           <View style={[styles.logo, styles.placeholderLogo]} />
         )}
