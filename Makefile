@@ -1,11 +1,19 @@
-.PHONY: install start-backend stop-backend start-mobile clean-mobile update-memecoins test-backend test-mobile test-blockchain test-providers test-coverage
+.PHONY: install start-backend stop-backend start-mobile clean-mobile update-memecoins test-backend test-mobile test-blockchain test-providers test-coverage start-services test-integration test-integration-short
 
 # Install all dependencies
 install:
 	@echo "Installing backend dependencies..."
 	go mod tidy
 	@echo "Installing mobile app dependencies..."
-	cd MemeTraderMobile && npm install
+	cd MemeTraderMobileNew && npm install
+
+# Start all services
+start-services:
+	@echo "Starting all services..."
+	@make start-backend
+	@echo "Waiting for backend services to be ready..."
+	@sleep 5
+	@make start-mobile
 
 # Start backend services
 start-backend:
@@ -21,13 +29,13 @@ stop-backend:
 # Start mobile app
 start-mobile:
 	@echo "Starting mobile app..."
-	cd MemeTraderMobile && npx expo start
+	cd MemeTraderMobileNew && npx expo start
 
 # Clean mobile app build
 clean-mobile:
 	@echo "Cleaning mobile app build..."
-	cd MemeTraderMobile && rm -rf node_modules
-	cd MemeTraderMobile && npm install
+	cd MemeTraderMobileNew && rm -rf node_modules
+	cd MemeTraderMobileNew && npm install
 
 # Update meme coins
 update-memecoins:
@@ -63,4 +71,16 @@ test-coverage:
 # Run mobile app tests
 test-mobile:
 	@echo "Running mobile app tests..."
-	cd MemeTraderMobile && npm test 
+	cd MemeTraderMobileNew && npm test
+
+# Run integration tests
+test-integration:
+	@echo "Running integration tests..."
+	go clean -testcache
+	go test ./internal/blockchain/providers/... -v
+
+# Run integration tests in short mode (skips long-running tests)
+test-integration-short:
+	@echo "Running integration tests in short mode..."
+	go clean -testcache
+	go test -short ./internal/blockchain/providers/... -v 
