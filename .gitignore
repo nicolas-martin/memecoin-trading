@@ -1,8 +1,14 @@
 # Environment variables
 .env
+.env.*
+!.env.example
+.env.local
+.env.development
+.env.production
 
-# Binaries
+# Binaries and build artifacts
 bin/
+dist/
 *.exe
 *.exe~
 *.dll
@@ -29,52 +35,23 @@ node_modules/
 # Debug files
 debug/
 
-# Log files
-*.log
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Build output
-dist/
-build/
-
 # Mobile app specific
-*.apk
-*.aab
-*.ipa
-*.xcarchive
-
-# Expo
-.expo/
-web-build/
-.env*.local
-
-# Native
-*.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# Debug
+*.orig.*
+web-build/
+.expo/
 npm-debug.*
-yarn-debug.*
-yarn-error.*
+*.jks
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
 
-# macOS
-.DS_Store
-*.pem
-
-# Local Netlify folder
-.netlify
-
-# Temporary files
+# Local development
+*.log
 tmp/
-temp/
