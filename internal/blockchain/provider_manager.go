@@ -82,7 +82,7 @@ func (pm *ProviderManager) RegisterProvider(provider Provider, config ProviderCo
 }
 
 // getHealthyProvider returns the highest priority healthy provider for a network
-func (pm *ProviderManager) getHealthyProvider(ctx context.Context, network Network) (Provider, error) {
+func (pm *ProviderManager) getHealthyProvider(_ context.Context, network Network) (Provider, error) {
 	pm.mu.RLock()
 	providers, exists := pm.providers[network]
 	pm.mu.RUnlock()
@@ -155,7 +155,7 @@ func (pm *ProviderManager) sortProviders(network Network) {
 }
 
 // executeWithFallback executes an operation with automatic fallback
-func (pm *ProviderManager) executeWithFallback(ctx context.Context, network Network, op func(Provider) error) error {
+func (pm *ProviderManager) executeWithFallback(_ context.Context, network Network, op func(Provider) error) error {
 	pm.mu.RLock()
 	providers := pm.providers[network]
 	pm.mu.RUnlock()

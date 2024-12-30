@@ -1,10 +1,14 @@
 package solana
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"log"
+	"io"
+	"math/big"
 	"meme-trader/internal/blockchain"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -85,7 +89,7 @@ func (c *RaydiumClient) getAllPools(ctx context.Context) ([]RaydiumPool, error) 
 			MarketCap:      pool.MarketCap,
 			Volume24h:      pool.Volume24h,
 			PriceChange24h: pool.PriceChange24h,
-			LastUpdated:    time.Now(),
+			LastUpdated:    time.Now().Unix(),
 			IsMemeCoin:     true,
 		}
 
@@ -104,11 +108,40 @@ type TokenMetadata struct {
 	Extensions map[string]interface{}
 }
 
+// RaydiumPool represents a liquidity pool on Raydium
+type RaydiumPool struct {
+	TokenAddress   string  `json:"tokenAddress"`
+	Symbol         string  `json:"symbol"`
+	Name           string  `json:"name"`
+	LogoURL        string  `json:"logoUrl"`
+	Price          float64 `json:"price"`
+	MarketCap      float64 `json:"marketCap"`
+	Volume24h      float64 `json:"volume24h"`
+	PriceChange24h float64 `json:"priceChange24h"`
+	LastUpdated    int64   `json:"lastUpdated"`
+	IsMemeCoin     bool    `json:"-"`
+}
+
 // fetchRaydiumPools fetches raw pool data from Raydium
 func (c *RaydiumClient) fetchRaydiumPools(ctx context.Context) ([]RaydiumPool, error) {
-	// TODO: Implement actual Raydium API call
-	// For now, return test data
-	return []RaydiumPool{}, nil
+	// Raydium API endpoint
+	endpoint := "https://api.raydium.io/v2/main/pairs"
+	if c.isDevnet {
+		endpoint = "https://api.raydium.io/v2/devnet/pairs"
+	}
+
+	// Make HTTP request to Raydium API
+	resp, err := makeHTTPRequest(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Raydium pools: %w", err)
+	}
+
+	var pools []RaydiumPool
+	if err := json.Unmarshal(resp, &pools); err != nil {
+		return nil, fmt.Errorf("failed to parse Raydium pools response: %w", err)
+	}
+
+	return pools, nil
 }
 
 // getTokenMetadata fetches token metadata from Jupiter API or token list
@@ -127,22 +160,80 @@ func (c *RaydiumClient) getTokenMetadata(ctx context.Context, tokenAddress strin
 func (c *RaydiumClient) getJupiterTokenMetadata(ctx context.Context, tokenAddress string) (*TokenMetadata, error) {
 	jupiterEndpoint := "https://token.jup.ag/all"
 
-	// Log the endpoint we're using
-	log.Printf("Fetching token metadata from Jupiter API: %s", jupiterEndpoint)
+	// Make HTTP request to Jupiter API
+	resp, err := makeHTTPRequest(ctx, "GET", jupiterEndpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Jupiter token metadata: %w", err)
+	}
 
-	// TODO: Implement Jupiter API call
-	return nil, fmt.Errorf("not implemented: %s", jupiterEndpoint)
+	var tokens []struct {
+		Address    string                 `json:"address"`
+		Symbol     string                 `json:"symbol"`
+		Name       string                 `json:"name"`
+		LogoURI    string                 `json:"logoURI"`
+		Tags       []string               `json:"tags"`
+		Extensions map[string]interface{} `json:"extensions"`
+	}
+
+	if err := json.Unmarshal(resp, &tokens); err != nil {
+		return nil, fmt.Errorf("failed to parse Jupiter token metadata: %w", err)
+	}
+
+	// Find the token we're looking for
+	for _, token := range tokens {
+		if strings.EqualFold(token.Address, tokenAddress) {
+			return &TokenMetadata{
+				Symbol:     token.Symbol,
+				Name:       token.Name,
+				LogoURL:    token.LogoURI,
+				Tags:       token.Tags,
+				Extensions: token.Extensions,
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("token not found in Jupiter API: %s", tokenAddress)
 }
 
 // getTokenListMetadata fetches token metadata from Solana token list
 func (c *RaydiumClient) getTokenListMetadata(ctx context.Context, tokenAddress string) (*TokenMetadata, error) {
 	tokenListEndpoint := "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json"
 
-	// Log the endpoint we're using
-	log.Printf("Fetching token metadata from Solana token list: %s", tokenListEndpoint)
+	// Make HTTP request to token list
+	resp, err := makeHTTPRequest(ctx, "GET", tokenListEndpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Solana token list: %w", err)
+	}
 
-	// TODO: Implement token list fetch
-	return nil, fmt.Errorf("not implemented: %s", tokenListEndpoint)
+	var tokenList struct {
+		Tokens []struct {
+			Address    string                 `json:"address"`
+			Symbol     string                 `json:"symbol"`
+			Name       string                 `json:"name"`
+			LogoURI    string                 `json:"logoURI"`
+			Tags       []string               `json:"tags"`
+			Extensions map[string]interface{} `json:"extensions"`
+		} `json:"tokens"`
+	}
+
+	if err := json.Unmarshal(resp, &tokenList); err != nil {
+		return nil, fmt.Errorf("failed to parse Solana token list: %w", err)
+	}
+
+	// Find the token we're looking for
+	for _, token := range tokenList.Tokens {
+		if strings.EqualFold(token.Address, tokenAddress) {
+			return &TokenMetadata{
+				Symbol:     token.Symbol,
+				Name:       token.Name,
+				LogoURL:    token.LogoURI,
+				Tags:       token.Tags,
+				Extensions: token.Extensions,
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("token not found in Solana token list: %s", tokenAddress)
 }
 
 // isMemeCoin determines if a token is a meme coin based on its metadata
@@ -172,27 +263,21 @@ func (c *RaydiumClient) isMemeCoin(metadata *TokenMetadata) bool {
 	return false
 }
 
-// RaydiumPool represents a liquidity pool on Raydium
-type RaydiumPool struct {
-	TokenAddress   string
-	Symbol         string
-	Name           string
-	LogoURL        string
-	Price          blockchain.Amount
-	MarketCap      blockchain.Amount
-	Volume24h      blockchain.Amount
-	PriceChange24h float64
-	LastUpdated    time.Time
-	IsMemeCoin     bool
-}
-
 // filterAndSortMemePools filters out non-meme coins and sorts by volume
 func (c *RaydiumClient) filterAndSortMemePools(pools []RaydiumPool, timeFrame time.Duration) []blockchain.MemeCoin {
 	var memeCoins []blockchain.MemeCoin
+	now := time.Now()
+	cutoff := now.Add(-timeFrame)
 
 	// Filter meme coins
 	for _, pool := range pools {
 		if !pool.IsMemeCoin {
+			continue
+		}
+
+		// Skip pools that haven't been updated within the time frame
+		lastUpdated := time.Unix(pool.LastUpdated, 0)
+		if lastUpdated.Before(cutoff) {
 			continue
 		}
 
@@ -202,11 +287,11 @@ func (c *RaydiumClient) filterAndSortMemePools(pools []RaydiumPool, timeFrame ti
 			Symbol:      pool.Symbol,
 			Name:        pool.Name,
 			LogoURL:     pool.LogoURL,
-			Price:       pool.Price,
-			MarketCap:   pool.MarketCap,
-			Volume24h:   pool.Volume24h,
+			Price:       blockchain.Amount{Value: new(big.Int).SetInt64(int64(pool.Price * 1e9))}, // Convert to lamports
+			MarketCap:   blockchain.Amount{Value: new(big.Int).SetInt64(int64(pool.MarketCap))},
+			Volume24h:   blockchain.Amount{Value: new(big.Int).SetInt64(int64(pool.Volume24h))},
 			Change24h:   pool.PriceChange24h,
-			LastUpdated: pool.LastUpdated,
+			LastUpdated: lastUpdated,
 		}
 
 		memeCoins = append(memeCoins, memeCoin)
@@ -352,6 +437,28 @@ func (c *RaydiumClient) getTokenAccount(ctx context.Context, owner solana.Public
 	return tokenAccount, nil
 }
 
+// RaydiumSwapInstruction represents a Raydium swap instruction
+type RaydiumSwapInstruction struct {
+	programID solana.PublicKey
+	accounts  []*solana.AccountMeta
+	data      []byte
+}
+
+// ProgramID implements the Instruction interface
+func (i *RaydiumSwapInstruction) ProgramID() solana.PublicKey {
+	return i.programID
+}
+
+// Accounts implements the Instruction interface
+func (i *RaydiumSwapInstruction) Accounts() []*solana.AccountMeta {
+	return i.accounts
+}
+
+// Data implements the Instruction interface
+func (i *RaydiumSwapInstruction) Data() ([]byte, error) {
+	return i.data, nil
+}
+
 // buildSwapInstruction builds the Raydium swap instruction
 func (c *RaydiumClient) buildSwapInstruction(
 	fromAccount solana.PublicKey,
@@ -359,21 +466,50 @@ func (c *RaydiumClient) buildSwapInstruction(
 	amount blockchain.Amount,
 	minimumAmountOut blockchain.Amount,
 ) solana.Instruction {
-	// This is a placeholder for the actual Raydium swap instruction
-	// You would need to implement this based on Raydium's smart contract
-	// and instruction format
+	// Raydium program ID
+	programID := solana.MustPublicKeyFromBase58("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
+	if c.isDevnet {
+		programID = solana.MustPublicKeyFromBase58("DnXyn8dAR5fJdqfBQciQ6gPSDNMQSTkQrPsR65ZF5qoW")
+	}
 
-	// Example structure:
-	/*
-		return &raydium.SwapInstruction{
-			TokenProgramID: token.ProgramID,
-			FromAccount:    fromAccount,
-			ToAccount:      toAccount,
-			Amount:         amount.Value.Uint64(),
-			MinimumOut:     minimumAmountOut.Value.Uint64(),
-		}
-	*/
+	// Build the instruction data
+	data := []byte{
+		0x0, // Instruction index for swap
+	}
+	data = append(data, amount.Value.Bytes()...)
+	data = append(data, minimumAmountOut.Value.Bytes()...)
 
-	// For now, return a dummy instruction
-	return &solana.GenericInstruction{}
+	return &RaydiumSwapInstruction{
+		programID: programID,
+		accounts: []*solana.AccountMeta{
+			{PublicKey: fromAccount, IsSigner: false, IsWritable: true},
+			{PublicKey: toAccount, IsSigner: false, IsWritable: true},
+		},
+		data: data,
+	}
+}
+
+// makeHTTPRequest is a helper function to make HTTP requests
+func makeHTTPRequest(ctx context.Context, method, url string, body []byte) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return respBody, nil
 }

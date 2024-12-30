@@ -77,6 +77,14 @@ func (m *MockProvider) GetTransactions(ctx context.Context, address string, limi
 	return args.Get(0).([]Transaction), args.Error(1)
 }
 
+func (m *MockProvider) GetTopMemeCoins(ctx context.Context, req TopMemeCoinsRequest) ([]MemeCoin, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]MemeCoin), args.Error(1)
+}
+
 func TestNewService(t *testing.T) {
 	service := NewService()
 	assert.NotNil(t, service, "Service should not be nil")

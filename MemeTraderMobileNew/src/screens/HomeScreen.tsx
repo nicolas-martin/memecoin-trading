@@ -3,11 +3,19 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { CoinTable } from '../components/CoinList/CoinTable';
 import { MemeCoin, getTopMemeCoins } from '../services/api';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  Home: undefined;
+  CoinDetail: { coin: MemeCoin };
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 export const HomeScreen: React.FC = () => {
   const [coins, setCoins] = useState<MemeCoin[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
 
   useEffect(() => {
     fetchMemeCoins();
