@@ -25,7 +25,7 @@ start-services:
 start-backend:
 	@echo "Starting backend services..."
 	docker-compose down -v
-	docker-compose up --build -d
+	DOCKER_BUILDKIT=1 docker-compose up --build -d --remove-orphans
 
 # Stop backend services
 stop-backend:

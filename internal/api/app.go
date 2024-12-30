@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 type App struct {
@@ -60,5 +61,20 @@ func (a *App) Run(addr string) error {
 		return err
 	}
 
-	return http.ListenAndServe(addr, a.Router)
+	// Setup CORS
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{
+			"http://localhost:8081",  // Expo web
+			"http://localhost:19006", // Expo web alternative port
+			"http://localhost:3000",  // Common React port
+			"exp://localhost:8081",   // Expo development
+		},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"*"},
+		Debug:          true, // Enable debugging for development
+	})
+
+	// Wrap router with CORS middleware
+	handler := c.Handler(a.Router)
+	return http.ListenAndServe(addr, handler)
 }

@@ -24,14 +24,31 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 export const MainScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigation = useNavigation<NavigationProp>();
-  const { coins, loading } = useSelector((state: RootState) => state.memeCoins);
+  const { coins, loading, error } = useSelector((state: RootState) => state.memeCoins);
 
   useEffect(() => {
-    dispatch(fetchMemeCoins());
+    const initializeData = async () => {
+      try {
+        console.log('Starting data initialization...');
+        const updateResult = await dispatch(updateMemeCoinsList()).unwrap();
+        console.log('Update result:', updateResult);
+        const fetchResult = await dispatch(fetchMemeCoins()).unwrap();
+        console.log('Fetch result:', fetchResult);
+      } catch (err) {
+        console.error('Error initializing data:', err);
+      }
+    };
+    
+    initializeData();
   }, [dispatch]);
 
-  const handleRefresh = () => {
-    dispatch(updateMemeCoinsList());
+  const handleRefresh = async () => {
+    try {
+      console.log('Starting refresh...');
+      await dispatch(updateMemeCoinsList()).unwrap();
+    } catch (err) {
+      console.error('Error refreshing:', err);
+    }
   };
 
   const handleCoinPress = (coin: MemeCoin) => {
@@ -44,6 +61,10 @@ export const MainScreen = () => {
         <ActivityIndicator size="large" color="#4F46E5" />
       </View>
     );
+  }
+
+  if (error) {
+    console.error('Error state:', error);
   }
 
   return (
