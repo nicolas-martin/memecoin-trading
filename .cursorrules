@@ -69,3 +69,4 @@ const additionalInstructions = `
 - Every time your update the code make sue to update the readme.md file with the latest changes.
 - Add test to new features and fix bugs.
 - After finishing a task, always run the test and make sure it passes.
+- Do not log and return and error, just return the error. If needed add values and wrap the error in a new error.

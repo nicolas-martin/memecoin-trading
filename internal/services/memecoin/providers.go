@@ -36,6 +36,34 @@ func (p *DexScreenerProvider) Name() string {
 }
 
 func (p *DexScreenerProvider) FetchMemeCoins(ctx context.Context) ([]postgres.MemeCoin, error) {
+	// First fetch the token boosts to get logos
+	boostReq, err := http.NewRequestWithContext(ctx, "GET", "https://api.dexscreener.com/token-boosts/latest/v1", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create boost request: %w", err)
+	}
+
+	boostResp, err := p.client.Do(boostReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch boost data: %w", err)
+	}
+	defer boostResp.Body.Close()
+
+	var boostResponse struct {
+		TokenAddress string `json:"tokenAddress"`
+		Icon         string `json:"icon"`
+	}
+
+	if err := json.NewDecoder(boostResp.Body).Decode(&boostResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse boost response: %w", err)
+	}
+
+	// Create a map of token addresses to logos
+	logoMap := make(map[string]string)
+	if boostResponse.TokenAddress != "" && boostResponse.Icon != "" {
+		logoMap[strings.ToLower(boostResponse.TokenAddress)] = boostResponse.Icon
+	}
+
+	// Now fetch the main token data
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.dexscreener.com/latest/dex/search?q=solana", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -95,6 +123,12 @@ func (p *DexScreenerProvider) FetchMemeCoins(ctx context.Context) ([]postgres.Me
 			fmt.Sscanf(pair.BaseToken.PriceUSD, "%f", &price)
 		}
 
+		// Try to get logo from boost data first, fallback to token data
+		logoURL := pair.BaseToken.LogoURL
+		if boostLogo, ok := logoMap[strings.ToLower(pair.BaseToken.Address)]; ok && boostLogo != "" {
+			logoURL = boostLogo
+		}
+
 		coin := postgres.MemeCoin{
 			ID:                       pair.BaseToken.Address,
 			Symbol:                   pair.BaseToken.Symbol,
@@ -105,7 +139,7 @@ func (p *DexScreenerProvider) FetchMemeCoins(ctx context.Context) ([]postgres.Me
 			ContractAddress:          pair.BaseToken.Address,
 			DataProvider:             "DexScreener",
 			LastUpdated:              time.Now(),
-			LogoURL:                  pair.BaseToken.LogoURL,
+			LogoURL:                  logoURL,
 		}
 
 		coins = append(coins, coin)

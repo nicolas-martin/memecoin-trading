@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -98,6 +99,7 @@ func createTables(db *sql.DB) error {
 }
 
 func (db *Database) UpdateMemeCoin(coin *MemeCoin) error {
+	log.Printf("Updating memecoin %s (%s) with logo URL: %s", coin.Name, coin.Symbol, coin.LogoURL)
 	_, err := db.db.Exec(`
 		INSERT INTO memecoins (
 			id, symbol, name, price, market_cap, volume_24h,
@@ -115,20 +117,34 @@ func (db *Database) UpdateMemeCoin(coin *MemeCoin) error {
 			contract_address = EXCLUDED.contract_address,
 			data_provider = EXCLUDED.data_provider,
 			last_updated = CURRENT_TIMESTAMP,
-			logo_url = EXCLUDED.logo_url,
+			logo_url = CASE 
+				WHEN EXCLUDED.logo_url IS NOT NULL AND EXCLUDED.logo_url != '' THEN EXCLUDED.logo_url 
+				ELSE memecoins.logo_url 
+			END,
 			description = EXCLUDED.description
 	`, coin.ID, coin.Symbol, coin.Name, coin.Price, coin.MarketCap,
 		coin.Volume24h, coin.PriceChange24h, coin.PriceChangePercentage24h,
 		coin.ContractAddress, coin.DataProvider, coin.LogoURL, coin.Description)
 
 	if err != nil {
+		log.Printf("Error updating memecoin %s: %v", coin.Symbol, err)
 		return fmt.Errorf("failed to update memecoin: %w", err)
+	}
+
+	// Verify the update
+	var storedLogoURL string
+	err = db.db.QueryRow("SELECT logo_url FROM memecoins WHERE id = $1", coin.ID).Scan(&storedLogoURL)
+	if err != nil {
+		log.Printf("Error verifying logo URL for %s: %v", coin.Symbol, err)
+	} else {
+		log.Printf("Stored logo URL for %s: %s", coin.Symbol, storedLogoURL)
 	}
 
 	return nil
 }
 
 func (db *Database) GetTopMemeCoins(limit int) ([]MemeCoin, error) {
+	log.Printf("Fetching top %d meme coins", limit)
 	rows, err := db.db.Query(`
 		SELECT id, symbol, name, price, market_cap, volume_24h,
 			price_change_24h, price_change_percentage_24h, contract_address,
@@ -138,6 +154,7 @@ func (db *Database) GetTopMemeCoins(limit int) ([]MemeCoin, error) {
 		LIMIT $1
 	`, limit)
 	if err != nil {
+		log.Printf("Error fetching top meme coins: %v", err)
 		return nil, fmt.Errorf("failed to get top memecoins: %w", err)
 	}
 	defer rows.Close()
@@ -153,11 +170,14 @@ func (db *Database) GetTopMemeCoins(limit int) ([]MemeCoin, error) {
 			&coin.Description,
 		)
 		if err != nil {
+			log.Printf("Error scanning memecoin: %v", err)
 			return nil, fmt.Errorf("failed to scan memecoin: %w", err)
 		}
+		log.Printf("Found coin %s (%s) with logo URL: %s", coin.Name, coin.Symbol, coin.LogoURL)
 		coins = append(coins, coin)
 	}
 
+	log.Printf("Returning %d meme coins", len(coins))
 	return coins, nil
 }
 
