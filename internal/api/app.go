@@ -39,15 +39,15 @@ func NewApp(cfg *config.Config) (*App, error) {
 	memeHandler := handlers.NewMemeHandler(service)
 
 	// Register routes
-	router.HandleFunc("/api/v1/memecoins", memeHandler.GetTopMemeCoins).Methods("GET")
-	router.HandleFunc("/api/v1/memecoins/{id}", memeHandler.GetMemeCoinDetail).Methods("GET")
+	router.HandleFunc("/api/v1/memecoins", memeHandler.GetTopMemeCoins).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/v1/memecoins/{id}", memeHandler.GetMemeCoinDetail).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/v1/memecoins/update", func(w http.ResponseWriter, r *http.Request) {
 		if err := service.FetchAndUpdateMemeCoins(r.Context()); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-	}).Methods("POST")
+	}).Methods("POST", "OPTIONS")
 
 	return &App{
 		Router:  router,
@@ -64,17 +64,27 @@ func (a *App) Run(addr string) error {
 	// Setup CORS
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
+			"http://localhost:8080",  // API server
 			"http://localhost:8081",  // Expo web
-			"http://localhost:19006", // Expo web alternative port
+			"http://localhost:8082",  // Expo web alternative
+			"http://localhost:19000", // Expo dev tools
+			"http://localhost:19001", // Expo dev tools alternative
+			"http://localhost:19002", // Expo dev tools alternative
+			"http://localhost:19006", // Expo web alternative
 			"http://localhost:3000",  // Common React port
 			"exp://localhost:8081",   // Expo development
+			"http://127.0.0.1:8082",  // Local IP alternative
+			"http://127.0.0.1:8081",  // Local IP alternative
+			"http://127.0.0.1:19006", // Local IP alternative
 		},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"*"},
+		AllowedHeaders: []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
 		Debug:          true, // Enable debugging for development
 	})
 
 	// Wrap router with CORS middleware
 	handler := c.Handler(a.Router)
+
+	log.Printf("Server starting on %s with CORS enabled for development", addr)
 	return http.ListenAndServe(addr, handler)
 }

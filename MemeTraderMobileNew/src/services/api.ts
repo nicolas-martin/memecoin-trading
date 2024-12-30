@@ -5,9 +5,10 @@ import { Platform } from 'react-native';
 const getBaseUrl = () => {
   if (Platform.OS === 'web') {
     // For web development with Expo
-    return window.location.hostname === 'localhost' 
-      ? 'http://localhost:8080'
-      : 'http://localhost:8080'; // Change this for production
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    // Use the same port as the frontend is running on
+    return `http://${hostname}:8080`;
   }
   
   if (Platform.OS === 'android') {
@@ -21,13 +22,17 @@ const getBaseUrl = () => {
 const API_URL = `${getBaseUrl()}/api/v1`;
 
 // Configure axios defaults
-axios.defaults.baseURL = API_URL;
-axios.defaults.headers.common['Accept'] = 'application/json';
-axios.defaults.headers.post['Content-Type'] = 'application/json';
-axios.defaults.withCredentials = true; // Important for CORS
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000, // 10 seconds timeout
+});
 
 // Add request/response interceptors for debugging
-axios.interceptors.request.use(
+api.interceptors.request.use(
   request => {
     console.log('Starting API Request:', {
       method: request.method?.toUpperCase(),
@@ -43,7 +48,7 @@ axios.interceptors.request.use(
   }
 );
 
-axios.interceptors.response.use(
+api.interceptors.response.use(
   response => {
     console.log('API Response:', {
       status: response.status,
@@ -99,7 +104,7 @@ export interface PriceHistory {
 
 export const getTopMemeCoins = async (): Promise<MemeCoin[]> => {
   try {
-    const response = await axios.get('/memecoins');
+    const response = await api.get('/memecoins');
     return response.data;
   } catch (error) {
     console.error('Error fetching top meme coins:', error);
@@ -109,7 +114,7 @@ export const getTopMemeCoins = async (): Promise<MemeCoin[]> => {
 
 export const getMemeCoinDetail = async (id: string): Promise<MemeCoin> => {
   try {
-    const response = await axios.get(`/memecoins/${id}`);
+    const response = await api.get(`/memecoins/${id}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching meme coin detail:', error);
@@ -119,7 +124,7 @@ export const getMemeCoinDetail = async (id: string): Promise<MemeCoin> => {
 
 export const updateMemeCoins = async (): Promise<void> => {
   try {
-    await axios.post('/memecoins/update');
+    await api.post('/memecoins/update');
   } catch (error) {
     console.error('Error updating meme coins:', error);
     throw error;
