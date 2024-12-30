@@ -1,11 +1,17 @@
-.PHONY: install start-backend stop-backend start-mobile clean-mobile update-memecoins test-backend test-mobile test-blockchain test-providers test-coverage start-services test-integration test-integration-short
+.PHONY: install start-backend stop-backend start-mobile clean-mobile update-memecoins test-backend test-mobile test-blockchain test-providers test-coverage start-services test-integration test-integration-short start-mobile-ios start-mobile-android install-mobile-deps
 
 # Install all dependencies
 install:
 	@echo "Installing backend dependencies..."
 	go mod tidy
 	@echo "Installing mobile app dependencies..."
-	cd MemeTraderMobileNew && npm install
+	@make install-mobile-deps
+
+# Install mobile dependencies
+install-mobile-deps:
+	@echo "Installing mobile app dependencies..."
+	cd MemeTraderMobileNew && npm install --legacy-peer-deps
+	cd MemeTraderMobileNew && npx expo install
 
 # Start all services
 start-services:
@@ -31,11 +37,23 @@ start-mobile:
 	@echo "Starting mobile app..."
 	cd MemeTraderMobileNew && npx expo start
 
+# Start mobile app on iOS simulator
+start-mobile-ios:
+	@echo "Starting mobile app on iOS simulator..."
+	cd MemeTraderMobileNew && npx expo start --ios
+
+# Start mobile app on Android emulator
+start-mobile-android:
+	@echo "Starting mobile app on Android emulator..."
+	cd MemeTraderMobileNew && npx expo start --android
+
 # Clean mobile app build
 clean-mobile:
 	@echo "Cleaning mobile app build..."
 	cd MemeTraderMobileNew && rm -rf node_modules
-	cd MemeTraderMobileNew && npm install
+	cd MemeTraderMobileNew && rm -rf .expo
+	cd MemeTraderMobileNew && npm cache clean --force
+	@make install-mobile-deps
 
 # Update meme coins
 update-memecoins:

@@ -1,50 +1,97 @@
+# Meme Trader Mobile App
 
-# TypeScript
+A React Native mobile application for tracking and analyzing meme coins. Built with Expo and TypeScript.
 
-[![GitHub Actions CI](https://github.com/microsoft/TypeScript/workflows/CI/badge.svg)](https://github.com/microsoft/TypeScript/actions?query=workflow%3ACI)
-[![npm version](https://badge.fury.io/js/typescript.svg)](https://www.npmjs.com/package/typescript)
-[![Downloads](https://img.shields.io/npm/dm/typescript.svg)](https://www.npmjs.com/package/typescript)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/microsoft/TypeScript/badge)](https://securityscorecards.dev/viewer/?uri=github.com/microsoft/TypeScript)
+## Features
 
+- Real-time meme coin price tracking
+- Market cap and volume analytics
+- 24-hour price change indicators
+- Clean, modern UI with responsive design
+- Integration with Go backend services
 
-[TypeScript](https://www.typescriptlang.org/) is a language for application-scale JavaScript. TypeScript adds optional types to JavaScript that support tools for large-scale JavaScript applications for any browser, for any host, on any OS. TypeScript compiles to readable, standards-based JavaScript. Try it out at the [playground](https://www.typescriptlang.org/play/), and stay up to date via [our blog](https://blogs.msdn.microsoft.com/typescript) and [Twitter account](https://twitter.com/typescript).
+## Tech Stack
 
-Find others who are using TypeScript at [our community page](https://www.typescriptlang.org/community/).
+- React Native with Expo
+- TypeScript
+- React Navigation for routing
+- Axios for API calls
+- React Native Chart Kit for price charts
+- Custom components for coin listings
 
-## Installing
+## Getting Started
 
-For the latest stable version:
+### Prerequisites
 
+- Node.js (v16 or newer)
+- npm or yarn
+- Expo CLI
+- iOS Simulator (for iOS development) or Android Studio (for Android development)
+- Expo Go app (for physical device testing)
+
+### Installation
+
+1. Install dependencies:
 ```bash
-npm install -D typescript
+make install-mobile-deps
 ```
 
-For our nightly builds:
-
+2. Start the development server:
 ```bash
-npm install -D typescript@next
+make start-mobile
 ```
 
-## Contribute
+### Running the App
 
-There are many ways to [contribute](https://github.com/microsoft/TypeScript/blob/main/CONTRIBUTING.md) to TypeScript.
-* [Submit bugs](https://github.com/microsoft/TypeScript/issues) and help us verify fixes as they are checked in.
-* Review the [source code changes](https://github.com/microsoft/TypeScript/pulls).
-* Engage with other TypeScript users and developers on [StackOverflow](https://stackoverflow.com/questions/tagged/typescript).
-* Help each other in the [TypeScript Community Discord](https://discord.gg/typescript).
-* Join the [#typescript](https://twitter.com/search?q=%23TypeScript) discussion on Twitter.
-* [Contribute bug fixes](https://github.com/microsoft/TypeScript/blob/main/CONTRIBUTING.md).
+You have three options to run the app:
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see
-the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com)
-with any additional questions or comments.
+1. Physical Device (Recommended):
+   - Install Expo Go on your mobile device
+   - Scan the QR code with:
+     - iOS: Use the Camera app
+     - Android: Use the Expo Go app
+   - Make sure your device is on the same WiFi network as your computer
 
-## Documentation
+2. iOS Simulator:
+   - Install Xcode
+   - Run `make start-mobile-ios`
 
-*  [TypeScript in 5 minutes](https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes.html)
-*  [Programming handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
-*  [Homepage](https://www.typescriptlang.org/)
+3. Android Emulator:
+   - Install Android Studio
+   - Set up an Android Virtual Device
+   - Run `make start-mobile-android`
 
-## Roadmap
+## Project Structure
 
-For details on our planned features and future direction, please refer to our [roadmap](https://github.com/microsoft/TypeScript/wiki/Roadmap).
+```
+src/
+  ├── components/         # Reusable UI components
+  │   └── CoinList/      # Coin listing components
+  ├── screens/           # Screen components
+  ├── services/          # API and other services
+  ├── navigation/        # Navigation configuration
+  └── assets/           # Images and other static assets
+```
+
+## Testing
+
+Run the test suite:
+```bash
+npm test
+```
+
+## Development
+
+- The app uses TypeScript for type safety
+- Components are organized by feature
+- API calls are centralized in the services directory
+- Follows React Native best practices and conventions
+
+## Backend Integration
+
+The app integrates with a Go backend service that provides:
+- Meme coin price data
+- Market analytics
+- Real-time updates
+
+Make sure the backend service is running (`make start-backend`) before starting the app.

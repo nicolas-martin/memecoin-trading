@@ -7,19 +7,32 @@
 
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { Provider } from 'react-redux';
-import { store } from './src/store';
-import { Navigation } from './src/navigation';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { HomeScreen } from './src/screens/HomeScreen';
+import { StatusBar } from 'expo-status-bar';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <Provider store={store}>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <Navigation />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </Provider>
+    <NavigationContainer>
+      <StatusBar style="auto" />
+      <Stack.Navigator>
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{
+            title: 'Meme Coins',
+            headerStyle: {
+              backgroundColor: '#FFFFFF',
+            },
+            headerTintColor: '#1F2937',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }

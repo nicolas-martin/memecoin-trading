@@ -57,7 +57,7 @@ export const CoinTable: React.FC<CoinTableProps> = ({ coins, onCoinPress }) => {
         <Image
           source={{ uri: coin.logoUrl }}
           style={styles.logo}
-          defaultSource={require('../../assets/placeholder.png')}
+          defaultSource={require('../../../../assets/placeholder.png')}
         />
         <View style={styles.nameTextContainer}>
           <Text style={styles.coinName} numberOfLines={1}>
